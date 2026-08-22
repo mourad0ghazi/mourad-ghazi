@@ -50,7 +50,7 @@ export const MODULES: ModuleMeta[] = [
   { id: 'savings', icon: PiggyBank, tKey: 'mod.savings', section: 'finance' },
   { id: 'investments', icon: TrendingUp, tKey: 'mod.investments', section: 'finance' },
   { id: 'loan', icon: CreditCard, tKey: 'mod.loan', section: 'finance' },
-  // ── Premium ──
+  // ── Fonctionnalités incluses (gratuites) ──
   { id: 'premium', icon: Gem, tKey: 'mod.premium', section: 'premium' },
 ];
 

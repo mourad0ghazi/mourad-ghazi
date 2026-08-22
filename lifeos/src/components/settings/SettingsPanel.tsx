@@ -7,9 +7,10 @@
 import React, { useRef, useState } from 'react';
 import {
   Bell,
-  Crown,
+  CheckCircle2,
   Database,
   Download,
+  Gem,
   Globe,
   ImagePlus,
   Keyboard,
@@ -40,13 +41,13 @@ const TABS: { id: Tab; icon: typeof User; key: string }[] = [
   { id: 'data', icon: Database, key: 'set.data' },
   { id: 'security', icon: Shield, key: 'set.security' },
   { id: 'shortcuts', icon: Keyboard, key: 'set.shortcuts' },
-  { id: 'premium', icon: Crown, key: 'set.premium' },
+  { id: 'premium', icon: Gem, key: 'set.premium' },
 ];
 
 const WEEK_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 export function SettingsContent({ initialTab = 'profile' }: { initialTab?: Tab }) {
-  const { t, state, updateSettings, updateProfile, resetLayout, toggleWidget, isHidden, showToast, exportAll, importAll, resetAll, openPremium } = useApp();
+  const { t, state, updateSettings, updateProfile, resetLayout, toggleWidget, isHidden, showToast, exportAll, importAll, resetAll } = useApp();
   const [tab, setTab] = useState<Tab>(initialTab);
   const [pinDraft, setPinDraft] = useState('');
   const [lastBackupAt, setLastBackupAt] = useState<string | null>(() => {
@@ -597,7 +598,16 @@ export function SettingsContent({ initialTab = 'profile' }: { initialTab?: Tab }
       {/* ── PREMIUM ── */}
       {tab === 'premium' && (
         <div>
-          <p style={{ color: 'var(--text-soft)', fontSize: 13.5, margin: '0 0 16px' }}>{t('prem.modalDesc')}</p>
+          <div className="free-banner" style={{ marginBottom: 16 }}>
+            <CheckCircle2 size={20} style={{ color: 'var(--success)', flex: 'none' }} />
+            <div>
+              <strong>{t('prem.title')}</strong>
+              <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5, marginTop: 2 }}>
+                {t('prem.modalDesc')}
+              </span>
+            </div>
+            <span className="badge success" style={{ marginLeft: 'auto', fontSize: 10 }}>✓ {t('prem.freeBadge')}</span>
+          </div>
           {[
             ['prem.f1', 'prem.f1d'],
             ['prem.f2', 'prem.f2d'],
@@ -615,18 +625,12 @@ export function SettingsContent({ initialTab = 'profile' }: { initialTab?: Tab }
             <div key={k} className="settings-row" style={{ padding: '9px 0' }}>
               <span>
                 <span className="sr-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {t(k)} <span className="premium-lock"><Crown size={12} /> {t('prem.badge')}</span>
+                  {t(k)} <span className="badge success" style={{ fontSize: 9 }}>✓ {t('prem.included')}</span>
                 </span>
                 <div className="sr-desc">{t(d)}</div>
               </span>
-              <button className="btn sm" onClick={openPremium}>
-                <Lock size={12} />
-              </button>
             </div>
           ))}
-          <button className="btn primary" style={{ marginTop: 14, width: '100%' }} onClick={openPremium}>
-            <Crown size={14} /> {t('prem.cta')}
-          </button>
         </div>
       )}
     </div>

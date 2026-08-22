@@ -16,8 +16,7 @@ import {
   Settings as SettingsIcon,
   UserRound,
   X,
-} from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+} from 'lucide-react';import { useApp } from '../../context/AppContext';
 import { MODULES, SECTION_TITLES, type NavSection } from '../../data/modules';
 import { useDashboardStore, useUIStore } from '../../store';
 import { rippleHandler } from '../ui';
@@ -108,7 +107,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               >
                 <Icon size={16} />
                 <span style={{ flex: 1 }}>{t(item.key)}</span>
-                {item.view === 'premium' && <span className="badge warning" style={{ fontSize: 8.5 }}>⭐ {t('prem.badge')}</span>}
+                {item.view === 'premium' && <span className="badge success" style={{ fontSize: 8.5 }}>✓ {t('prem.badge')}</span>}
               </button>
             );
           })}

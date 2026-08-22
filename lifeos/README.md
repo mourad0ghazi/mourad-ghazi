@@ -18,7 +18,7 @@
 | **Dashboard** (`#/dashboard`) | Bannière d'accueil (gradient smoke, parallax, mini-stats) + grille drag & drop 15 modules |
 | **Finances** (`#/finances`) | Onglets : Vue d'ensemble / Transactions (pagination, filtres) / Budget / Épargne & simulateur / Investissements / Prêt |
 | **Vie personnelle** (`#/personal`) | Onglets : Tâches (liste + **Kanban**) / Calendrier / Notes / Habitudes (+ progression mensuelle) / Journal / Objectifs SMART |
-| **Premium** (`#/premium`) | Hero, 12 features, pricing (Gratuit 0 € vs Premium 9,99 €/mois), FAQ accordion |
+| **Fonctionnalités** (`#/premium`) | Hero « 100 % gratuit », 12 fonctionnalités incluses, FAQ, contact — aucune tarification |
 | **Paramètres** (`#/settings`) | 9 onglets de configuration complète |
 
 ## ✨ Fonctionnalités clés
@@ -61,7 +61,7 @@ lifeos/src
 ├── hooks/            # useDebounce, useLocalStorage, useMediaQuery, useAnimation, useDragReorder, useChatbot
 ├── components/
 │   ├── layout/       # Sidebar (pages + modules), Header (recherche, alertes, actions rapides)
-│   ├── pages/        # DashboardPage, FinancePage, PersonalPage, PremiumPage (+ SettingsContent)
+│   ├── pages/        # DashboardPage, FinancePage, PersonalPage, PremiumPage (fonctionnalités gratuites) (+ SettingsContent)
 │   ├── modules/      # personal, planner, finance, finance2, extended (Kanban, mensuel, transactions)
 │   ├── chatbot/      # widget + moteur de réponses + coach proactif
 │   ├── settings/     # panneau de paramètres

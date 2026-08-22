@@ -2185,3 +2185,27 @@ table.data-table {
 :root[data-card-shadows='false'] .widget-card:hover {
   box-shadow: none;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   V2.4 – 100 % gratuit : bandeau "tout inclus", page features
+   ══════════════════════════════════════════════════════════════ */
+
+.free-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, var(--success-soft), var(--card));
+  border: 1px solid var(--success);
+  border-radius: 16px;
+  padding: 14px 18px;
+  box-shadow: var(--shadow-sm);
+}
+.free-banner strong { font-size: 14px; }
+
+/* La page "features" garde son identifiant premium-page pour la rétro-compat CSS */
+.premium-page .premium-hero {
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 40%, #f1f3f5 100%);
+}
+:root[data-theme='dark'] .premium-page .premium-hero {
+  background: linear-gradient(180deg, #0d0d0d 0%, #1a1a1a 55%, #262626 100%);
+}

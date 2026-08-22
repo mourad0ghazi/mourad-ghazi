@@ -180,10 +180,10 @@ export function buildReply(raw: string, state: AppState, lang: 'fr' | 'en', coac
       : '🍅 The Pomodoro technique: 25 minutes of focus, 5 minutes of break. After 4 cycles, take a long break (15 min).\n\nShortcut: press "P" to start/pause the timer!';
   }
 
-  if (has('premium', 'abonnement', 'upgrade', 'prix', 'price', 'tarif')) {
+  if (has('premium', 'abonnement', 'upgrade', 'prix', 'price', 'tarif', 'payer', 'gratuit', 'free', 'payant', 'acheter', 'buy')) {
     return fr
-      ? '👑 L\'offre Premium débloque : IA avancée, rapports PDF/Excel, sync bancaire, cloud, mode famille, intégrations (Google Calendar, Outlook…), PWA hors-ligne, API et support prioritaire.\n\nExplorez le module Premium en bas du dashboard pour tout voir !'
-      : '👑 The Premium plan unlocks: advanced AI, PDF/Excel reports, bank sync, cloud, family mode, integrations (Google Calendar, Outlook…), offline PWA, API and priority support.\n\nExplore the Premium module at the bottom of the dashboard to see it all!';
+      ? '🎉 Bonne nouvelle : tout est 100 % GRATUIT dans LifeOS !\n\nAucun abonnement, aucun paiement, aucune fonctionnalité cachée. IA avancée, rapports, synchronisation bancaire, cloud, mode famille, intégrations, PWA… tout est inclus pour tous les utilisateurs.\n\nOuvrez la page « Fonctionnalités » dans la sidebar pour tout voir !'
+      : '🎉 Great news: everything is 100% FREE in LifeOS!\n\nNo subscription, no payment, no hidden features. Advanced AI, reports, bank sync, cloud, family mode, integrations, PWA… everything is included for every user.\n\nOpen the "Features" page in the sidebar to see it all!';
   }
 
   // Fallback

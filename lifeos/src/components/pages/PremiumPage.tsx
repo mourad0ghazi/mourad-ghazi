@@ -1,24 +1,36 @@
 // ─────────────────────────────────────────────────────────────
-// LifeOS – Page Premium (v2)
-// Hero gradient smoke, grille de features, pricing (Gratuit vs
-// Premium 9,99 €/mois), FAQ accordion. (Tailwind utilitaires.)
+// LifeOS – Page Fonctionnalités (v2.4 : 100 % gratuit)
+// Hero, grille des fonctionnalités incluses, FAQ, contact.
+// Plus aucune tarification ni verrou : tout est disponible.
 // ─────────────────────────────────────────────────────────────
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, ChevronDown, Crown, Sparkles } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Gem, Sparkles } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useUIStore } from '../../store';
 import { PREMIUM_FEATURES_META } from '../premium';
 
-const FAQ_KEYS = ['prem.faq1', 'prem.faq2', 'prem.faq3', 'prem.faq4', 'prem.faq5'];
+const FAQ_KEYS = ['prem.faqFree1', 'prem.faqFree2', 'prem.faqFree3', 'prem.faqFree4', 'prem.faqFree5'];
 
 export function PremiumPage() {
-  const { t, state, openPremium } = useApp();
+  const { t, state } = useApp();
+  const setView = useUIStore((s) => s.setView);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
+
+  const goDashboard = () => {
+    setView('dashboard');
+    try {
+      window.location.hash = '/dashboard';
+    } catch {
+      /* ignore */
+    }
+    window.scrollTo({ top: 0 });
+  };
 
   return (
     <div className="page-wrap premium-page">
-      {/* ── Hero ── */}
+      {/* ── Hero : tout est gratuit ── */}
       <motion.section
         className="premium-hero"
         initial={{ opacity: 0, y: 24 }}
@@ -26,21 +38,23 @@ export function PremiumPage() {
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="premium-hero-smoke" aria-hidden="true" />
-        <span className="badge warning" style={{ marginBottom: 14 }}>⭐ {t('prem.badge')}</span>
-        <h1 className="premium-hero-title">{t('prem.hero')}</h1>
-        <p className="premium-hero-desc">{t('prem.heroDesc')}</p>
+        <span className="badge success" style={{ marginBottom: 14, fontSize: 11 }}>
+          <CheckCircle2 size={12} /> {t('prem.freeBadge')}
+        </span>
+        <h1 className="premium-hero-title">{t('prem.heroFree')}</h1>
+        <p className="premium-hero-desc">{t('prem.heroFreeDesc')}</p>
         <div className="flex gap-3 flex-wrap justify-center" style={{ marginTop: 20 }}>
-          <button className="btn primary premium-cta" onClick={openPremium}>
-            <Sparkles size={15} /> {t('prem.trial')}
+          <button className="btn primary premium-cta" onClick={goDashboard}>
+            <Sparkles size={15} /> {t('prem.startFree')}
           </button>
-          <button className="btn" onClick={() => document.getElementById('premium-pricing')?.scrollIntoView({ behavior: 'smooth' })}>
-            {t('prem.price')} {t('prem.perMonth')}
+          <button className="btn" onClick={() => document.getElementById('premium-features')?.scrollIntoView({ behavior: 'smooth' })}>
+            <Gem size={14} /> {t('prem.title')}
           </button>
         </div>
       </motion.section>
 
-      {/* ── Features ── */}
-      <div className="premium-grid premium-page-grid">
+      {/* ── Toutes les fonctionnalités incluses ── */}
+      <div id="premium-features" className="premium-grid premium-page-grid">
         {PREMIUM_FEATURES_META.map((f, i) => {
           const Icon = f.icon;
           return (
@@ -56,7 +70,7 @@ export function PremiumPage() {
               <span>
                 <span className="pi-name">
                   {t(f.key)}
-                  <Crown size={11} style={{ color: 'var(--warning)' }} />
+                  <CheckCircle2 size={11} style={{ color: 'var(--success)' }} />
                 </span>
                 <span className="pi-desc">{t(f.descKey)}</span>
               </span>
@@ -65,39 +79,16 @@ export function PremiumPage() {
         })}
       </div>
 
-      {/* ── Pricing ── */}
-      <div id="premium-pricing" className="pricing-grid">
-        {/* Gratuit */}
-        <div className="pricing-card">
-          <div className="pricing-name">{t('prem.free')}</div>
-          <div className="pricing-price">0 €</div>
-          <div className="pricing-period">{t('prem.perMonth')}</div>
-          <ul className="pricing-list">
-            <li><Check size={14} /> {t('prem.incFree1')}</li>
-            <li><Check size={14} /> {t('prem.incFree2')}</li>
-            <li><Check size={14} /> {t('prem.incFree3')}</li>
-            <li><Check size={14} /> {t('prem.incFree4')}</li>
-          </ul>
-          <div className="pricing-current">{t('prem.current')}</div>
+      {/* ── Bandeau gratuité ── */}
+      <div className="free-banner">
+        <Gem size={20} style={{ color: 'var(--accent)', flex: 'none' }} />
+        <div>
+          <strong>{t('prem.title')}</strong>
+          <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5, marginTop: 2 }}>
+            {t('prem.subtitle')}
+          </span>
         </div>
-        {/* Premium */}
-        <div className="pricing-card featured">
-          <span className="pricing-badge">⭐ {t('prem.popular')}</span>
-          <div className="pricing-name">{t('prem.badge')}</div>
-          <div className="pricing-price">{t('prem.price')}</div>
-          <div className="pricing-period">{t('prem.perMonth')}</div>
-          <ul className="pricing-list">
-            <li><Check size={14} /> {t('prem.incFree1')}</li>
-            <li><Check size={14} /> {t('prem.incFree2')}</li>
-            <li><Check size={14} /> {t('prem.incPrem1')}</li>
-            <li><Check size={14} /> {t('prem.incPrem2')}</li>
-            <li><Check size={14} /> {t('prem.incPrem3')}</li>
-            <li><Check size={14} /> {t('prem.incPrem4')}</li>
-          </ul>
-          <button className="btn primary" style={{ width: '100%' }} onClick={openPremium}>
-            <Crown size={14} /> {t('prem.choose')}
-          </button>
-        </div>
+        <span className="badge success" style={{ marginLeft: 'auto', fontSize: 10 }}>✓ {t('prem.freeBadge')}</span>
       </div>
 
       {/* ── FAQ ── */}
@@ -117,7 +108,7 @@ export function PremiumPage() {
         })}
       </div>
 
-      {/* ── Contact footer ── */}
+      {/* ── Contact ── */}
       <div className="premium-contact">
         <span>{t('footer.contact')}</span>
         <a href={`mailto:${state.profile.email}`} className="premium-contact-mail">

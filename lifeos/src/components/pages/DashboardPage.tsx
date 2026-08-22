@@ -18,7 +18,7 @@ import { ClockWidget, WeatherWidget, CalendarWidget, PomodoroWidget } from '../m
 import { TasksWidget, NotesWidget, HabitsWidget, JournalWidget, GoalsWidget } from '../modules/planner';
 import { FinanceWidget, BudgetWidget } from '../modules/finance';
 import { SavingsWidget, InvestmentsWidget, LoanWidget } from '../modules/finance2';
-import { PremiumWidget } from '../premium';
+import { FeaturesWidget } from '../premium';
 import type { LayoutItem, WidgetId } from '../../types';
 
 const ResponsiveGrid = WidthProvider(Responsive);
@@ -39,7 +39,7 @@ function renderWidget(id: WidgetId) {
     case 'savings': return <SavingsWidget id={id} />;
     case 'investments': return <InvestmentsWidget id={id} />;
     case 'loan': return <LoanWidget id={id} />;
-    case 'premium': return <PremiumWidget id={id} />;
+    case 'premium': return <FeaturesWidget id={id} />;
     default: return null;
   }
 }

@@ -39,7 +39,6 @@ import {
   useFinanceStore,
   usePersonalStore,
   useSettingsStore,
-  useUIStore,
 } from '../store';
 import { makeT, type TFunc } from '../i18n/translations';
 import {
@@ -63,9 +62,6 @@ interface AppContextValue {
   toasts: Toast[];
   showToast: (text: string, type?: Toast['type']) => void;
   dismissToast: (id: string) => void;
-  premiumOpen: boolean;
-  openPremium: () => void;
-  closePremium: () => void;
   locked: boolean;
   unlock: (pin: string) => boolean;
   lockNow: () => void;
@@ -171,9 +167,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const messages = useChatbotStore((s) => s.messages);
   const coachLastAt = useChatbotStore((s) => s.coachLastAt);
   const chatUnread = useChatbotStore((s) => s.unreadCount);
-
-  const premiumOpen = useUIStore((s) => s.premiumOpen);
-  const setPremiumOpen = useUIStore((s) => s.setPremiumOpen);
 
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [, forceRender] = useState(0);
@@ -338,9 +331,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     toasts,
     showToast,
     dismissToast,
-    premiumOpen,
-    openPremium: () => setPremiumOpen(true),
-    closePremium: () => setPremiumOpen(false),
     locked,
     unlock,
     lockNow,
