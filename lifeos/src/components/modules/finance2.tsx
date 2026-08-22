@@ -161,10 +161,22 @@ export function SavingsWidget({ id }: { id: WidgetId }) {
                 <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} vertical={false} />
                 <XAxis dataKey="year" tick={{ fontSize: 10, fill: palette.axis }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: palette.axis }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={tooltipStyle(palette)} formatter={(v: number) => formatMoney(v, cur, { compact: true })} />
+                <Tooltip contentStyle={tooltipStyle(palette)} formatter={(v: number, n: string) => [formatMoney(v, cur, { compact: true }), n]} />
                 <Area type="monotone" dataKey="value" stroke={palette.accent} strokeWidth={2.2} fill="url(#gSav)" animationDuration={1000} />
+                {/* Référence "sans intérêts" (capital versé uniquement) */}
+                <Area type="monotone" dataKey="invested" stroke={palette.soft} strokeWidth={1.5} strokeDasharray="5 4" fill="none" animationDuration={1000} />
               </AreaChart>
             </ResponsiveContainer>
+          </div>
+          <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-muted)', marginTop: 4, flexWrap: 'wrap' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 14, height: 3, borderRadius: 2, background: palette.accent, display: 'inline-block' }} />
+              {t('budget.withInterest')}
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 14, height: 0, borderTop: `2px dashed ${palette.soft}`, display: 'inline-block' }} />
+              {t('budget.noInterest')}
+            </span>
           </div>
           <div className="stat-grid" style={{ marginTop: 8 }}>
             <div className="stat-box" style={{ padding: 8 }}>

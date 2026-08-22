@@ -36,6 +36,8 @@ const profile = {
   email: 'mouradghazi002@gmail.com',
   bio: 'Développeur web à Casablanca. Je construis ma vie un module à la fois.',
   avatar: null as string | null,
+  phone: '+212 6 81 01 02 81',
+  birthday: '1998-06-15',
 };
 
 // ── Transactions : ~6 mois d'historique réaliste ─────────────

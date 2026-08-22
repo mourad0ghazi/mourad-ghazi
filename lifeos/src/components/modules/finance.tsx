@@ -197,6 +197,10 @@ export function FinanceWidget({ id }: { id: WidgetId }) {
                     <stop offset="0%" stopColor={palette.expense} stopOpacity={0.22} />
                     <stop offset="100%" stopColor={palette.expense} stopOpacity={0} />
                   </linearGradient>
+                  <linearGradient id="gNet" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={palette.accent} stopOpacity={0.24} />
+                    <stop offset="100%" stopColor={palette.accent} stopOpacity={0} />
+                  </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: palette.axis }} axisLine={false} tickLine={false} />
@@ -204,6 +208,7 @@ export function FinanceWidget({ id }: { id: WidgetId }) {
                 <Tooltip contentStyle={ChartTooltipStyle(palette)} formatter={(v: number) => formatMoney(v, cur, { compact: true })} />
                 <Area type="monotone" dataKey={t('fin.revenue')} stroke={palette.income} strokeWidth={2.2} fill="url(#gIncome)" animationDuration={1000} />
                 <Area type="monotone" dataKey={t('fin.expenses')} stroke={palette.expense} strokeWidth={2.2} fill="url(#gExpense)" animationDuration={1000} />
+                <Area type="monotone" dataKey={t('fin.netSavings')} stroke={palette.accent} strokeWidth={2} strokeDasharray="5 4" fill="url(#gNet)" animationDuration={1500} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -350,6 +355,14 @@ export function BudgetWidget({ id }: { id: WidgetId }) {
     return spent <= c.planned && c.planned > 0 && (spent / c.planned) * 100 >= warnThreshold;
   });
   const overCount = criticalCats.length;
+  // Prévision fin de mois : dépense moyenne quotidienne × jours du mois
+  const monthProjection = useMemo(() => {
+    const now = new Date();
+    const day = now.getDate();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    if (day <= 1 || totalSpent <= 0) return null;
+    return Math.round((totalSpent / day) * daysInMonth);
+  }, [totalSpent]);
 
   const save = () => {
     const planned = Number(form.planned);
@@ -397,6 +410,11 @@ export function BudgetWidget({ id }: { id: WidgetId }) {
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
             {formatMoney(totalSpent, cur)} / {formatMoney(totalPlanned, cur)} · {t('budget.left')}
           </div>
+          {monthProjection !== null && (
+            <div style={{ fontSize: 10.5, marginTop: 3, color: monthProjection > totalPlanned ? 'var(--warning)' : 'var(--text-muted)' }}>
+              {t('budget.projection')} : <strong>{formatMoney(monthProjection, cur)}</strong>
+            </div>
+          )}
         </div>
 
         <div className="scroll-y" style={{ flex: 1, minHeight: 140, display: 'flex', flexDirection: 'column', gap: 10 }}>

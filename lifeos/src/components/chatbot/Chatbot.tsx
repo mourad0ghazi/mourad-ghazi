@@ -9,8 +9,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Bot, MessageSquare, Send, Sparkles, Trash2, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useChatbot } from '../../hooks/useChatbot';
 import { KNOWLEDGE, SUGGESTED } from '../../data/knowledge';
 import { formatDate, formatMoney, monthKey, percent, todayISO } from '../../utils/helpers';
+import { messageVariants, slideInBottom } from '../../utils/animations';
 import type { AppState } from '../../types';
 import { ConfirmDialog } from '../ui';
 
@@ -238,11 +240,12 @@ export function buildCoachMessage(state: AppState, lang: 'fr' | 'en'): string {
 /* ── Widget de chat ── */
 export function Chatbot() {
   const { t, state, lang, pushChat, clearChat, setChatUnread, chatUnread, coachLastAt, setCoachLastAt } = useApp();
+  const { typing, send, cancel } = useChatbot();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
-  const [typing, setTyping] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const greetedRef = useRef(false);
   const coachRef = useRef(false);
 
@@ -295,6 +298,9 @@ export function Chatbot() {
     return () => window.removeEventListener('lifeos:chat-toggle', handler);
   }, [setChatUnread]);
 
+  // Annule le timer de frappe au démontage
+  useEffect(() => cancel, [cancel]);
+
   // Scroll auto
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
@@ -305,18 +311,11 @@ export function Chatbot() {
     if (open) setChatUnread(0);
   }, [open, setChatUnread]);
 
-  const send = (text?: string) => {
+  const sendMessage = (text?: string) => {
     const msg = (text ?? input).trim();
     if (!msg || typing) return;
     setInput('');
-    pushChat('user', msg);
-    setTyping(true);
-    // Délai "réflexion" réaliste
-    window.setTimeout(() => {
-      const reply = buildReply(msg, state, lang, state.settings.coachMode);
-      pushChat('bot', reply);
-      setTyping(false);
-    }, 900 + Math.random() * 700);
+    send(msg);
   };
 
   return (
@@ -324,10 +323,10 @@ export function Chatbot() {
       {open && (
         <motion.div
           className="chat-panel"
-          initial={{ opacity: 0, y: 24, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 24, scale: 0.95 }}
-          transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+          variants={slideInBottom}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
           role="dialog"
           aria-label={t('chat.title')}
         >
@@ -366,7 +365,7 @@ export function Chatbot() {
 
           <div className="chat-chips">
             {suggestions.map((s) => (
-              <button key={s} className="chip" style={{ flex: 'none', fontSize: 11 }} onClick={() => send(s)}>
+              <button key={s} className="chip" style={{ flex: 'none', fontSize: 11 }} onClick={() => sendMessage(s)}>
                 {s}
               </button>
             ))}
@@ -374,12 +373,12 @@ export function Chatbot() {
 
           <div className="chat-body" ref={bodyRef}>
             {messages.map((m) => (
-              <div key={m.id} className={`chat-msg ${m.role}`}>
+              <motion.div key={m.id} className={`chat-msg ${m.role}`} variants={messageVariants} initial="hidden" animate="visible">
                 {m.text}
                 <span className="cm-time">
                   {new Date(m.time).toLocaleTimeString(lang === 'fr' ? 'fr-FR' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
                 </span>
-              </div>
+              </motion.div>
             ))}
             {typing && (
               <div className="chat-typing" aria-label={t('chat.typing')}>
@@ -389,15 +388,28 @@ export function Chatbot() {
           </div>
 
           <div className="chat-input-row">
-            <input
+            <textarea
+              ref={textareaRef}
               className="chat-input"
-              value={input}
+              rows={1}
               placeholder={t('chat.placeholder')}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && send()}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                // auto-grow jusqu'à 3 lignes max
+                const el = e.target;
+                el.style.height = 'auto';
+                el.style.height = `${Math.min(el.scrollHeight, 76)}px`;
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
               aria-label={t('chat.placeholder')}
             />
-            <button className="chat-send" onClick={() => send()} disabled={!input.trim() || typing} style={{ opacity: !input.trim() || typing ? 0.5 : 1 }} aria-label="Send">
+            <button className="chat-send" onClick={() => sendMessage()} disabled={!input.trim() || typing} style={{ opacity: !input.trim() || typing ? 0.5 : 1 }} aria-label="Send">
               <Send size={16} />
             </button>
           </div>

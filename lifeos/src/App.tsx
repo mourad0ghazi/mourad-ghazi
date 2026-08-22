@@ -11,6 +11,8 @@ import { AlertTriangle, CheckCircle2, Info, XCircle, Lock, Delete } from 'lucide
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
+import { MobileNav } from './components/layout/MobileNav';
+import { Footer } from './components/layout/Footer';
 import { Chatbot } from './components/chatbot/Chatbot';
 import { PremiumModal } from './components/premium';
 import { SettingsContent } from './components/settings/SettingsPanel';
@@ -18,6 +20,7 @@ import { DashboardPage } from './components/pages/DashboardPage';
 import { FinancePage } from './components/pages/FinancePage';
 import { PersonalPage } from './components/pages/PersonalPage';
 import { PremiumPage } from './components/pages/PremiumPage';
+import { pageTransition, toastVariants } from './utils/animations';
 import { useUIStore } from './store';
 import type { View } from './types';
 
@@ -37,10 +40,10 @@ function Toasts() {
           <motion.div
             key={toast.id}
             className={`toast ${toast.type}`}
-            initial={{ opacity: 0, x: 60 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 60 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+            variants={toastVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
             onClick={() => dismissToast(toast.id)}
             role="status"
           >
@@ -250,18 +253,20 @@ function Shell() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={view}
-                initial={state.settings.animations.page ? { opacity: 0, y: 18 } : false}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                variants={pageTransition}
+                initial={state.settings.animations.page ? 'initial' : false}
+                animate="animate"
+                exit={state.settings.animations.page ? 'exit' : undefined}
               >
                 {pages[view]}
               </motion.div>
             </AnimatePresence>
           )}
+          <Footer />
         </div>
       </main>
 
+      <MobileNav />
       <Chatbot />
       <Toasts />
       <PremiumModal />

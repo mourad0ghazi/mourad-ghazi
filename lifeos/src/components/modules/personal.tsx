@@ -30,12 +30,15 @@ import { useApp } from '../../context/AppContext';
 import { AnimatedNumber, Modal, ProgressBar, WidgetHead, rippleHandler, useReveal } from '../ui';
 import { addDays, formatClock, parseISODate, todayISO, toISODate, pad } from '../../utils/helpers';
 import { EVENT_COLORS } from '../../data/modules';
+import { WEATHER_CITIES } from '../../utils/constants';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 import type { CalendarEvent, WidgetId } from '../../types';
 
 /* ══════════════ HORLOGE ══════════════ */
 export function ClockWidget({ id }: { id: WidgetId }) {
   const { t, state } = useApp();
   const [now, setNow] = useState(new Date());
+  const [mode, setMode] = useState<'digital' | 'analog'>('digital');
   const tz = state.settings.timezone;
   const locale = state.settings.lang === 'fr' ? 'fr-FR' : 'en-US';
 
@@ -62,27 +65,83 @@ export function ClockWidget({ id }: { id: WidgetId }) {
 
   const progress = ((now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86400) * 100;
 
+  // Heures/minutes/secondes dans le fuseau choisi
+  const timeParts = useMemo(() => {
+    try {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: tz,
+      }).formatToParts(now);
+      const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+      return { h: get('hour') % 12, m: get('minute'), s: get('second') };
+    } catch {
+      return { h: now.getHours() % 12, m: now.getMinutes(), s: now.getSeconds() };
+    }
+  }, [now, tz]);
+
+  const hourAngle = (timeParts.h + timeParts.m / 60) * 30;
+  const minuteAngle = (timeParts.m + timeParts.s / 60) * 6;
+  const secondAngle = timeParts.s * 6;
+
   return (
     <div className="widget-card">
-      <WidgetHead icon={<ClockIcon />} title={t('mod.clock')} sub={t('clock.localTime')} />
-      <div className="widget-body" style={{ alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-        <div className="pomo-time" style={{ fontSize: 46, letterSpacing: '-0.02em' }}>
-          {formatClock(now, tz, locale)}
-        </div>
-        <div style={{ color: 'var(--text-soft)', fontSize: 13, textAlign: 'center', textTransform: 'capitalize' }}>
-          {dateLabel}
-        </div>
-        <div style={{ width: '100%', maxWidth: 240, marginTop: 10 }}>
-          <ProgressBar value={progress} height={6} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10.5, color: 'var(--text-muted)' }}>
-            <span>00:00</span>
-            <span>
-              {t('clock.week')} {weekNumber}
-            </span>
-            <span>24:00</span>
+      <WidgetHead
+        icon={<ClockIcon />}
+        title={t('mod.clock')}
+        sub={t('clock.localTime')}
+        actions={
+          <div className="seg-group">
+            <button className={`seg-btn ${mode === 'digital' ? 'active' : ''}`} onClick={() => setMode('digital')} aria-label="Digital">12:30</button>
+            <button className={`seg-btn ${mode === 'analog' ? 'active' : ''}`} onClick={() => setMode('analog')} aria-label="Analog">🕐</button>
           </div>
-        </div>
-        <div className="badge neutral" style={{ marginTop: 8 }}>
+        }
+      />
+      <div className="widget-body" style={{ alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        {mode === 'digital' ? (
+          <>
+            <div className="pomo-time" style={{ fontSize: 46, letterSpacing: '-0.02em' }}>
+              {formatClock(now, tz, locale)}
+            </div>
+            <div style={{ color: 'var(--text-soft)', fontSize: 13, textAlign: 'center', textTransform: 'capitalize' }}>
+              {dateLabel}
+            </div>
+            <div style={{ width: '100%', maxWidth: 240, marginTop: 10 }}>
+              <ProgressBar value={progress} height={6} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10.5, color: 'var(--text-muted)' }}>
+                <span>00:00</span>
+                <span>
+                  {t('clock.week')} {weekNumber}
+                </span>
+                <span>24:00</span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <svg className="analog-clock" viewBox="0 0 150 150" aria-label="Horloge analogique">
+              <circle cx="75" cy="75" r="70" fill="none" stroke="var(--border-strong)" strokeWidth="2" />
+              <circle cx="75" cy="75" r="68" fill="var(--card)" stroke="var(--accent)" strokeWidth="1" />
+              {Array.from({ length: 12 }, (_, i) => {
+                const a = (i * 30 * Math.PI) / 180;
+                const x1 = 75 + Math.sin(a) * 58;
+                const y1 = 75 - Math.cos(a) * 58;
+                const x2 = 75 + Math.sin(a) * 63;
+                const y2 = 75 - Math.cos(a) * 63;
+                return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--text-muted)" strokeWidth={i % 3 === 0 ? 2.5 : 1.2} />;
+              })}
+              <line className="ac-hand" x1="75" y1="75" x2="75" y2="40" stroke="var(--text)" strokeWidth="4.5" strokeLinecap="round" transform={`rotate(${hourAngle} 75 75)`} />
+              <line className="ac-hand" x1="75" y1="75" x2="75" y2="25" stroke="var(--text-soft)" strokeWidth="3" strokeLinecap="round" transform={`rotate(${minuteAngle} 75 75)`} />
+              <line className="ac-hand" x1="75" y1="75" x2="75" y2="20" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" transform={`rotate(${secondAngle} 75 75)`} />
+              <circle cx="75" cy="75" r="4" fill="var(--accent)" />
+            </svg>
+            <div style={{ color: 'var(--text-soft)', fontSize: 12.5, textAlign: 'center', textTransform: 'capitalize' }}>
+              {dateLabel}
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+              {formatClock(now, tz, locale)}
+            </div>
+          </>
+        )}
+        <div className="badge neutral" style={{ marginTop: mode === 'digital' ? 8 : 4 }}>
           {tz.replace('_', ' ')}
         </div>
       </div>
@@ -125,7 +184,7 @@ function weatherCodeIcon(code: number, size = 22) {
 
 const CASABLANCA = { lat: 33.5731, lon: -7.5898, city: 'Casablanca' };
 
-function useWeather(lang: 'fr' | 'en') {
+function useWeather(lang: 'fr' | 'en', cityId: string) {
   const [data, setData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -180,30 +239,57 @@ function useWeather(lang: 'fr' | 'en') {
       }
     };
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude, '📍'),
-        () => fetchWeather(CASABLANCA.lat, CASABLANCA.lon, CASABLANCA.city),
-        { timeout: 6000 },
-      );
+    if (cityId === 'auto') {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude, '📍'),
+          () => fetchWeather(CASABLANCA.lat, CASABLANCA.lon, CASABLANCA.city),
+          { timeout: 6000 },
+        );
+      } else {
+        fetchWeather(CASABLANCA.lat, CASABLANCA.lon, CASABLANCA.city);
+      }
     } else {
-      fetchWeather(CASABLANCA.lat, CASABLANCA.lon, CASABLANCA.city);
+      const city = WEATHER_CITIES.find((c) => c.id === cityId);
+      if (city && city.lat !== 0) {
+        fetchWeather(city.lat, city.lon, city.label);
+      } else {
+        fetchWeather(CASABLANCA.lat, CASABLANCA.lon, CASABLANCA.city);
+      }
     }
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [cityId]);
 
   return { data, loading, error };
 }
 
 export function WeatherWidget({ id }: { id: WidgetId }) {
   const { t, lang } = useApp();
-  const { data, loading, error } = useWeather(lang);
+  const [cityId, setCityId] = useLocalStorage<string>('lifeos:weather-city', 'auto');
+  const { data, loading, error } = useWeather(lang, cityId);
 
   return (
     <div className="widget-card">
-      <WidgetHead icon={<CloudSun size={17} />} title={t('mod.weather')} sub={data?.city ?? ''} />
+      <WidgetHead
+        icon={<CloudSun size={17} />}
+        title={t('mod.weather')}
+        sub={data?.city ?? ''}
+        actions={
+          <select
+            className="select"
+            style={{ width: 130, height: 28, fontSize: 11 }}
+            value={cityId}
+            onChange={(e) => setCityId(e.target.value)}
+            aria-label={t('weather.locating')}
+          >
+            {WEATHER_CITIES.map((c) => (
+              <option key={c.id} value={c.id}>{c.label}</option>
+            ))}
+          </select>
+        }
+      />
       <div className="widget-body">
         {loading || !data ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -214,7 +300,7 @@ export function WeatherWidget({ id }: { id: WidgetId }) {
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <span style={{ color: 'var(--accent)' }}>{weatherCodeIcon(data.code, 44)}</span>
+              <span className="weather-float" style={{ color: 'var(--accent)' }}>{weatherCodeIcon(data.code, 44)}</span>
               <div>
                 <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>
                   <AnimatedNumber value={data.temp} format={(n) => `${Math.round(n)}°C`} />
@@ -522,6 +608,16 @@ export function PomodoroWidget({ id }: { id: WidgetId }) {
     setSecondsLeft(POMO_MODES.find((x) => x.key === m)!.minutes * 60);
   };
 
+  // Passe à la phase suivante (bouton Skip)
+  const skip = () => {
+    const order: PomoMode[] = ['focus', 'short', 'focus', 'long'];
+    const idx = order.indexOf(mode);
+    const next = order[(idx + 1) % order.length];
+    setMode(next);
+    setRunning(false);
+    setSecondsLeft(POMO_MODES.find((x) => x.key === next)!.minutes * 60);
+  };
+
   useEffect(() => {
     if (!running) return;
     intervalRef.current = window.setInterval(() => {
@@ -593,13 +689,16 @@ export function PomodoroWidget({ id }: { id: WidgetId }) {
             {pad(mins)}:{pad(secs)}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
           <button className={`btn ${running ? '' : 'primary'}`} onClick={(e) => { rippleHandler(e); setRunning(!running); }}>
             {running ? <Pause size={15} /> : <Play size={15} />}
             {running ? t('pomo.pause') : secondsLeft === total ? t('pomo.start') : t('pomo.resume')}
           </button>
           <button className="btn" onClick={(e) => { rippleHandler(e); setRunning(false); setSecondsLeft(total); }}>
             <RotateCcw size={14} /> {t('pomo.reset')}
+          </button>
+          <button className="btn" onClick={(e) => { rippleHandler(e); skip(); }} title={t('cal.next')}>
+            <ChevronRight size={14} /> {t('cal.next')}
           </button>
         </div>
         <div className="badge accent" style={{ marginTop: 12 }}>

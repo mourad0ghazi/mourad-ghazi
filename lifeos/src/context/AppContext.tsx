@@ -286,6 +286,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const exportAll = useCallback(() => {
     import('../utils/helpers').then(({ downloadJSON }) => {
       downloadJSON(`lifeos-backup-${new Date().toISOString().slice(0, 10)}.json`, state);
+      try {
+        localStorage.setItem('lifeos:last-backup', new Date().toISOString());
+      } catch {
+        /* ignore */
+      }
       showToast(t('toast.exported'), 'success');
     });
   }, [state, t, showToast]);

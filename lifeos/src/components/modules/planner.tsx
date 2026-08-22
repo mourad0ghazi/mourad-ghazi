@@ -27,7 +27,10 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { ConfirmDialog, EmptyState, Modal, ProgressBar, WidgetHead, rippleHandler } from '../ui';
+import { useDragReorder } from '../../hooks/useDragAndDrop';
 import { daysUntil, downloadCSV, formatDate, lastNDays, parseISODate, percent, todayISO } from '../../utils/helpers';
+import { formatDistanceToNow } from 'date-fns';
+import { fr as frLocale, enUS } from 'date-fns/locale';
 import type { Priority, WidgetId } from '../../types';
 
 const fmt = (lang: string) => (lang === 'fr' ? 'fr-FR' : 'en-US');
@@ -47,7 +50,6 @@ export function TasksWidget({ id }: { id: WidgetId }) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [subText, setSubText] = useState<string>('');
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Ordre = ordre personnalisé de l'utilisateur (réordonnable par drag & drop).
@@ -96,27 +98,20 @@ export function TasksWidget({ id }: { id: WidgetId }) {
     );
   };
 
-  // Réordonnancement par drag & drop (HTML5) — réordonne le tableau de stockage
-  const onDrop = (targetIndex: number) => {
-    if (dragIndex === null || dragIndex === targetIndex) return;
-    // Reconstruit l'ordre global : actives (dans l'ordre du store) + terminées
+  // Réordonnancement par drag & drop (hook dédié)
+  const { dragProps } = useDragReorder((from, to) => {
     const activeIds = state.tasks.filter((x) => !x.done).map((x) => x.id);
-    const fromId = list[dragIndex].id;
-    const toId = list[targetIndex].id;
+    const fromId = list[from].id;
+    const toId = list[to].id;
     const fromIdx = activeIds.indexOf(fromId);
     const toIdx = activeIds.indexOf(toId);
     if (fromIdx >= 0 && toIdx >= 0) {
       const [moved] = activeIds.splice(fromIdx, 1);
       activeIds.splice(toIdx, 0, moved);
       const byId = new Map(state.tasks.map((x) => [x.id, x]));
-      const newOrder = [
-        ...activeIds.map((id) => byId.get(id)!),
-        ...state.tasks.filter((x) => x.done),
-      ];
-      reorderTasks(newOrder);
+      reorderTasks([...activeIds.map((id) => byId.get(id)!), ...state.tasks.filter((x) => x.done)]);
     }
-    setDragIndex(null);
-  };
+  });
 
   return (
     <div className="widget-card">
@@ -165,11 +160,7 @@ export function TasksWidget({ id }: { id: WidgetId }) {
                 key={task.id}
                 className="list-item"
                 style={{ opacity: task.done ? 0.55 : 1, cursor: 'grab' }}
-                draggable
-                onDragStart={() => setDragIndex(i)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => onDrop(i)}
-                onDragEnd={() => setDragIndex(null)}
+                {...dragProps(i)}
               >
                 <button
                   className={`checkbox ${task.done ? 'on' : ''}`}
@@ -285,12 +276,21 @@ export function TasksWidget({ id }: { id: WidgetId }) {
 export function NotesWidget({ id }: { id: WidgetId }) {
   const { t, state, addNote, updateNote, deleteNote } = useApp();
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const dateLocale = state.settings.lang === 'fr' ? frLocale : enUS;
 
   useEffect(() => {
     const handler = () => addNote();
     window.addEventListener('lifeos:focus-note', handler);
     return () => window.removeEventListener('lifeos:focus-note', handler);
   }, [addNote]);
+
+  const relativeUpdated = (iso: string) => {
+    try {
+      return formatDistanceToNow(parseISODate(iso), { addSuffix: true, locale: dateLocale });
+    } catch {
+      return formatDate(iso, state.settings.dateFormat);
+    }
+  };
 
   return (
     <div className="widget-card">
@@ -326,7 +326,7 @@ export function NotesWidget({ id }: { id: WidgetId }) {
               onChange={(e) => updateNote(note.id, { content: e.target.value })}
             />
             <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>
-              {t('notes.updated')} {formatDate(note.updatedAt, state.settings.dateFormat)}
+              {t('notes.updated')} {relativeUpdated(note.updatedAt)}
             </div>
           </div>
         ))}

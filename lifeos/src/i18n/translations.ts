@@ -555,6 +555,27 @@ const fr: Dict = {
   'tx.incomeOnly': 'Revenus',
   'tx.expenseOnly': 'Dépenses',
   'tx.pagination': 'Page {page} sur {total}',
+
+  // ── v2.1 ──
+  'budget.projection': 'Projection fin de mois',
+  'budget.noInterest': 'Sans intérêts',
+  'budget.withInterest': 'Avec intérêts',
+  'set.phone': 'Téléphone',
+  'set.birthday': 'Date de naissance',
+  'set.backup': 'Sauvegarde manuelle',
+  'set.backupNow': 'Sauvegarder maintenant',
+  'set.backupRestore': 'Restaurer la sauvegarde',
+  'set.backupDesc': 'Une copie complète de vos données est conservée sur cet appareil.',
+  'set.lastBackup': 'Dernière sauvegarde',
+  'set.backupNever': 'Jamais',
+  'set.backupDone': 'Sauvegarde effectuée ✓',
+  'set.restoreDone': 'Sauvegarde restaurée ✓',
+  'set.restoreNone': 'Aucune sauvegarde manuelle trouvée',
+  'clock.analog': 'Analogique',
+  'clock.digital': 'Digital',
+  'footer.contact': 'Une question ? Contactez-nous :',
+  'footer.made': 'Conçu avec soin pour votre vie personnelle et financière.',
+  'misc.relativeAgo': 'il y a {time}',
 };
 
 const en: Dict = {
@@ -1080,6 +1101,27 @@ const en: Dict = {
   'tx.incomeOnly': 'Income',
   'tx.expenseOnly': 'Expenses',
   'tx.pagination': 'Page {page} of {total}',
+
+  // ── v2.1 ──
+  'budget.projection': 'End-of-month projection',
+  'budget.noInterest': 'Without interest',
+  'budget.withInterest': 'With interest',
+  'set.phone': 'Phone',
+  'set.birthday': 'Date of birth',
+  'set.backup': 'Manual backup',
+  'set.backupNow': 'Back up now',
+  'set.backupRestore': 'Restore backup',
+  'set.backupDesc': 'A full copy of your data is kept on this device.',
+  'set.lastBackup': 'Last backup',
+  'set.backupNever': 'Never',
+  'set.backupDone': 'Backup complete ✓',
+  'set.restoreDone': 'Backup restored ✓',
+  'set.restoreNone': 'No manual backup found',
+  'clock.analog': 'Analog',
+  'clock.digital': 'Digital',
+  'footer.contact': 'Any question? Contact us:',
+  'footer.made': 'Crafted with care for your personal and financial life.',
+  'misc.relativeAgo': '{time} ago',
 };
 
 const dicts: Record<Lang, Dict> = { fr, en };

@@ -25,6 +25,8 @@ import {
 import { useApp } from '../../context/AppContext';
 import { Modal, Toggle, rippleHandler } from '../ui';
 import { ACCENTS, CURRENCIES, TIMEZONES } from '../../utils/helpers';
+import { STORAGE_KEYS } from '../../utils/constants';
+import { isValidEmail, isValidPin } from '../../utils/validators';
 import type { CoachFreq, Density, HourFormat, ThemeMode } from '../../types';
 
 type Tab = 'profile' | 'appearance' | 'region' | 'dashboard' | 'notifications' | 'data' | 'security' | 'shortcuts' | 'premium';
@@ -47,10 +49,55 @@ export function SettingsContent({ initialTab = 'profile' }: { initialTab?: Tab }
   const { t, state, updateSettings, updateProfile, resetLayout, toggleWidget, isHidden, showToast, exportAll, importAll, resetAll, openPremium } = useApp();
   const [tab, setTab] = useState<Tab>(initialTab);
   const [pinDraft, setPinDraft] = useState('');
+  const [lastBackupAt, setLastBackupAt] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.lastBackup);
+    } catch {
+      return null;
+    }
+  });
   const fileRef = useRef<HTMLInputElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
   const s = state.settings;
+
+  const lastBackupLabel = lastBackupAt
+    ? new Date(lastBackupAt).toLocaleString(s.lang === 'fr' ? 'fr-FR' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : t('set.backupNever');
+
+  // ── Sauvegarde manuelle (instantané complet dans localStorage) ──
+  const backupNow = () => {
+    try {
+      const snapshot = {
+        state,
+        at: new Date().toISOString(),
+        version: '2.1',
+      };
+      localStorage.setItem(STORAGE_KEYS.manualBackup, JSON.stringify(snapshot));
+      localStorage.setItem(STORAGE_KEYS.lastBackup, snapshot.at);
+      setLastBackupAt(snapshot.at);
+      showToast(t('set.backupDone'), 'success');
+    } catch {
+      showToast('Erreur de sauvegarde', 'error');
+    }
+  };
+
+  const restoreBackup = () => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.manualBackup);
+      if (!raw) {
+        showToast(t('set.restoreNone'), 'warning');
+        return;
+      }
+      const snapshot = JSON.parse(raw);
+      if (snapshot?.state && typeof snapshot.state === 'object') {
+        importAll(snapshot.state);
+        showToast(t('set.restoreDone'), 'success');
+      }
+    } catch {
+      showToast(t('set.restoreNone'), 'warning');
+    }
+  };
 
   const uploadAvatar = (file: File) => {
     const reader = new FileReader();
@@ -135,7 +182,26 @@ export function SettingsContent({ initialTab = 'profile' }: { initialTab?: Tab }
             </div>
             <div className="field">
               <label>{t('set.email')}</label>
-              <input className="input" type="email" value={state.profile.email} onChange={(e) => updateProfile({ email: e.target.value })} />
+              <input
+                className="input"
+                type="email"
+                value={state.profile.email}
+                onChange={(e) => updateProfile({ email: e.target.value })}
+                style={{ borderColor: state.profile.email && !isValidEmail(state.profile.email) ? 'var(--danger)' : undefined }}
+              />
+              {state.profile.email && !isValidEmail(state.profile.email) && (
+                <span style={{ fontSize: 11, color: 'var(--danger)' }}>✗ Email invalide</span>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div className="field" style={{ flex: 1 }}>
+                <label>{t('set.phone')}</label>
+                <input className="input" type="tel" value={state.profile.phone ?? ''} onChange={(e) => updateProfile({ phone: e.target.value })} />
+              </div>
+              <div className="field" style={{ flex: 1 }}>
+                <label>{t('set.birthday')}</label>
+                <input className="input" type="date" value={state.profile.birthday ?? ''} onChange={(e) => updateProfile({ birthday: e.target.value })} />
+              </div>
             </div>
             <div className="field">
               <label>{t('set.bio')}</label>
@@ -355,6 +421,23 @@ export function SettingsContent({ initialTab = 'profile' }: { initialTab?: Tab }
       {tab === 'data' && (
         <div>
           <div className="settings-row">
+            <span>
+              <span className="sr-label">{t('set.backup')}</span>
+              <div className="sr-desc">{t('set.backupDesc')}</div>
+              <div className="sr-desc" style={{ marginTop: 4 }}>
+                {t('set.lastBackup')} : <strong>{lastBackupLabel}</strong>
+              </div>
+            </span>
+            <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn" onClick={backupNow}>
+                <Database size={14} /> {t('set.backupNow')}
+              </button>
+              <button className="btn" onClick={restoreBackup}>
+                <Upload size={14} /> {t('set.backupRestore')}
+              </button>
+            </span>
+          </div>
+          <div className="settings-row">
             <span className="sr-label">{t('set.exportJson')}</span>
             <button className="btn" onClick={exportAll}>
               <Download size={14} /> {t('act.export')}
@@ -430,8 +513,9 @@ export function SettingsContent({ initialTab = 'profile' }: { initialTab?: Tab }
                 />
                 <button
                   className="btn primary sm"
+                  disabled={!isValidPin(pinDraft)}
                   onClick={() => {
-                    if (pinDraft.length === 4) {
+                    if (isValidPin(pinDraft)) {
                       updateSettings({ pin: pinDraft });
                       setPinDraft('');
                       showToast(t('toast.pinChanged'), 'success');

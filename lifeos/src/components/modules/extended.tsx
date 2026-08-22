@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { EmptyState, ProgressBar, WidgetHead, rippleHandler } from '../ui';
+import { useDebounce } from '../../hooks/useDebounce';
 import {
   downloadCSV,
   formatDate,
@@ -224,6 +225,14 @@ export function HabitMonthly({ id }: { id: WidgetId }) {
 /* ══════════════ TRANSACTIONS COMPLÈTES (pagination) ══════════════ */
 const PAGE_SIZE = 20;
 
+/** Couleur stable par catégorie (hash → palette smoke) */
+const CAT_PALETTE = ['#343a40', '#495057', '#6c757d', '#5b7388', '#5f7d6a', '#868e96', '#9aa5ad', '#b8893c'];
+function catColor(category: string): string {
+  let hash = 0;
+  for (let i = 0; i < category.length; i++) hash = (hash * 31 + category.charCodeAt(i)) >>> 0;
+  return CAT_PALETTE[hash % CAT_PALETTE.length];
+}
+
 export function TransactionsFull({ id }: { id: WidgetId }) {
   const { t, state, deleteTx, showToast } = useApp();
   const [page, setPage] = useState(1);
@@ -239,14 +248,15 @@ export function TransactionsFull({ id }: { id: WidgetId }) {
     return [...set].sort().reverse();
   }, [state.transactions]);
 
+  const debouncedSearch = useDebounce(search, 220);
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     return state.transactions
       .filter((x) => (typeFilter === 'all' ? true : x.type === typeFilter))
       .filter((x) => (monthFilter === 'all' ? true : monthKey(x.date) === monthFilter))
       .filter((x) => (q ? (x.label + ' ' + x.category).toLowerCase().includes(q) : true))
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [state.transactions, search, typeFilter, monthFilter]);
+  }, [state.transactions, debouncedSearch, typeFilter, monthFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -325,7 +335,14 @@ export function TransactionsFull({ id }: { id: WidgetId }) {
                 {pageItems.map((x) => (
                   <tr key={x.id}>
                     <td style={{ color: 'var(--text-muted)' }}>{formatDate(x.date, fmt)}</td>
-                    <td style={{ fontWeight: 500 }}>{x.label}</td>
+                    <td style={{ fontWeight: 500 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span className="cat-avatar" style={{ background: catColor(x.category) }} aria-hidden="true">
+                          {x.category.slice(0, 2).toUpperCase()}
+                        </span>
+                        {x.label}
+                      </span>
+                    </td>
                     <td><span className="badge neutral">{x.category}</span></td>
                     <td className={x.type === 'income' ? 'amount-pos' : 'amount-neg'} style={{ textAlign: 'right' }}>
                       {x.type === 'income' ? '+' : '−'}{formatMoney(x.amount, cur)}

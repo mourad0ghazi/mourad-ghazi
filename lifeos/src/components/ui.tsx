@@ -7,6 +7,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, AlertTriangle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { modalContent } from '../utils/animations';
+import { useMediaQuery, usePrefersReducedMotion } from '../hooks';
 
 /* ── Ripple effect sur boutons ── */
 export function rippleHandler(e: React.MouseEvent<HTMLElement>) {
@@ -54,10 +56,10 @@ export function Modal({
         className={`modal ${size === 'lg' ? 'lg' : ''}`}
         role="dialog"
         aria-modal="true"
-        initial={{ opacity: 0, scale: 0.92, y: 14 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+        variants={modalContent}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
       >
         <div className="modal-head">
           <h3>{title}</h3>
@@ -97,7 +99,7 @@ export function Toggle({
   );
 }
 
-/* ── Compteur animé (0 → valeur, 1.4s, easing out) ── */
+/* ── Compteur animé (0 → valeur, 2s, easing out) ── */
 export function AnimatedNumber({
   value,
   format,
@@ -110,11 +112,16 @@ export function AnimatedNumber({
   const [display, setDisplay] = useState(0);
   const prev = useRef(0);
   const raf = useRef<number | null>(null);
+  const reduced = usePrefersReducedMotion();
 
   useEffect(() => {
     const from = prev.current;
     const to = value;
     prev.current = value;
+    if (reduced) {
+      setDisplay(to);
+      return;
+    }
     const start = performance.now();
     const tick = (now: number) => {
       const p = Math.min(1, (now - start) / duration);
@@ -127,7 +134,7 @@ export function AnimatedNumber({
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [value, duration]);
+  }, [value, duration, reduced]);
 
   return <span>{format(display)}</span>;
 }
@@ -249,18 +256,8 @@ export function WidgetHead({
   );
 }
 
-/* ── Hook : détection media query ── */
-export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(query);
-    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
-    setMatches(mq.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, [query]);
-  return matches;
-}
+/* ── Hook : détection media query (ré-export depuis hooks/) ── */
+export { useMediaQuery } from '../hooks/useMediaQuery';
 
 /* ── Hook : scroll reveal (IntersectionObserver) ── */
 export function useReveal<T extends HTMLElement>(): React.RefObject<T | null> {

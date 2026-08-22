@@ -13,7 +13,7 @@ import { PREMIUM_FEATURES_META } from '../premium';
 const FAQ_KEYS = ['prem.faq1', 'prem.faq2', 'prem.faq3', 'prem.faq4', 'prem.faq5'];
 
 export function PremiumPage() {
-  const { t, openPremium } = useApp();
+  const { t, state, openPremium } = useApp();
   const [openFaq, setOpenFaq] = useState<string | null>(null);
 
   return (
@@ -115,6 +115,15 @@ export function PremiumPage() {
             </div>
           );
         })}
+      </div>
+
+      {/* ── Contact footer ── */}
+      <div className="premium-contact">
+        <span>{t('footer.contact')}</span>
+        <a href={`mailto:${state.profile.email}`} className="premium-contact-mail">
+          {state.profile.email}
+        </a>
+        <span className="premium-contact-note">{t('footer.made')}</span>
       </div>
     </div>
   );

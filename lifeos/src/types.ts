@@ -12,6 +12,8 @@ export interface Profile {
   email: string;
   bio: string;
   avatar: string | null; // dataURL ou null
+  phone?: string;
+  birthday?: string; // YYYY-MM-DD
 }
 
 export type HourFormat = '24' | '12';

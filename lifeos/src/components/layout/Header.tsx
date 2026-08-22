@@ -26,6 +26,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { formatClock, formatDate, formatMoney, monthKey, todayISO } from '../../utils/helpers';
 import { useUIStore } from '../../store';
+import { useDebounce } from '../../hooks/useDebounce';
 import { rippleHandler } from '../ui';
 import type { WidgetId } from '../../types';
 
@@ -104,9 +105,10 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
     return out;
   }, [state.transactions, state.budget, state.settings.budgetAlerts, state.settings.budgetWarningThreshold]);
 
-  // ── Recherche globale ──
+  // ── Recherche globale (debouncée) ──
+  const debouncedQuery = useDebounce(query, 220);
   const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
     if (q.length < 2) return [];
     const out: { type: string; icon: 'task' | 'note' | 'tx' | 'event' | 'goal' | 'habit'; title: string; sub: string; widget: WidgetId }[] = [];
     state.tasks.forEach((x) => {
@@ -128,7 +130,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
       if (x.name.toLowerCase().includes(q)) out.push({ type: t('mod.habits'), icon: 'habit', title: x.name, sub: '', widget: 'habits' });
     });
     return out.slice(0, 8);
-  }, [query, state, t, fmt, cur]);
+  }, [debouncedQuery, state, t, fmt, cur]);
 
   const goTo = (widget: WidgetId) => {
     setSearchOpen(false);
@@ -192,6 +194,9 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
       </button>
       <span className="sidebar-logo header-logo" style={{ width: 32, height: 32, borderRadius: 10 }}>
         <LayoutDashboard size={16} />
+      </span>
+      <span className="header-brand-name" style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.02em', marginRight: 4 }}>
+        LifeOS
       </span>
       <span className="avatar">
         {state.profile.avatar ? <img src={state.profile.avatar} alt="" /> : initials}

@@ -1963,3 +1963,133 @@ table.data-table {
   0%, 100% { box-shadow: var(--shadow-sm); }
   30% { box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-lg); }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   V2.1 – Mobile nav, footer, FAB float, chat textarea, météo
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Navigation mobile (bottom bar) ── */
+.mobile-nav {
+  display: none;
+}
+@media (max-width: 767px) {
+  .mobile-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 80;
+    display: flex;
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-top: 1px solid var(--border);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  .mobile-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 9.5px;
+    font-weight: 600;
+    padding: 6px 2px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: color 0.2s ease, background-color 0.2s ease;
+  }
+  .mobile-nav-item.active {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .chat-fab { bottom: 84px !important; right: 14px !important; }
+  .chat-panel { bottom: 156px !important; }
+  .app-content { padding-bottom: 110px; }
+}
+
+/* ── Footer ── */
+.app-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+  padding: 16px 4px 8px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.app-footer strong { color: var(--text-soft); }
+
+/* ── FAB chatbot : flottement doux ── */
+@keyframes fab-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.chat-fab {
+  animation: fab-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both 0.6s, fab-float 3.5s ease-in-out infinite 1.4s;
+}
+.chat-fab:hover { animation-play-state: paused, running; }
+
+/* ── Input chat multiligne ── */
+.chat-input {
+  resize: none;
+  min-height: 40px;
+  max-height: 76px;
+  line-height: 1.4;
+  padding: 10px 16px;
+}
+
+/* ── Icône météo : flottement subtil ── */
+.weather-float {
+  display: inline-grid;
+  animation: fab-float 4s ease-in-out infinite;
+}
+
+/* ── Avatars catégorie (transactions) ── */
+.cat-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  flex: none;
+}
+
+/* ── Cadran analogique ── */
+.analog-clock { position: relative; width: 150px; height: 150px; }
+.analog-clock .ac-hand { transform-origin: 50% 50%; }
+
+/* ── Marque header + contact premium ── */
+@media (max-width: 480px) {
+  .header-brand-name { display: none; }
+}
+.premium-contact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 40px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.premium-contact-mail {
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 14px;
+}
+.premium-contact-mail:hover { text-decoration: underline; }
+.premium-contact-note { font-size: 11.5px; color: var(--text-muted); }

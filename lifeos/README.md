@@ -1,4 +1,4 @@
-# LifeOS – Mon Dashboard Personnel (v2)
+# LifeOS – Mon Dashboard Personnel (v2.1)
 
 > Un tableau de bord personnel complet pour piloter sa vie : finances, organisation,
 > habitudes, objectifs et un agent IA intégré. Design "fumée" minimaliste
@@ -24,16 +24,21 @@
 ## ✨ Fonctionnalités clés
 
 - **Drag & drop + redimensionnement** des modules, masquer/afficher, layout persisté
-- **Tâches** : sous-tâches, tags, priorités (dont Urgente), statuts (À faire/En cours/Terminé), Kanban, réordonnancement par glisser-déposer, export CSV
+- **Horloge** : mode **digital + analogique** (cadran SVG animé)
+- **Pomodoro** : Play/Pause/Reset/**Skip**, anneau de progression, son, sessions
+- **Tâches** : sous-tâches, tags, priorités (dont Urgente), statuts (À faire/En cours/Terminé), Kanban, réordonnancement par glisser-déposer (`useDragReorder`), export CSV
 - **Habitudes** : tri-état (fait ✓ / manqué ✗ / vide), streaks, graphique mensuel
 - **Objectifs SMART** : milestones (étapes clés), échéances, alertes de retard
 - **Journal** : humeur, historique, **protection par PIN optionnelle**
-- **Finances** : graphiques animés, budget avec **alertes à niveaux** (attention ≥ seuil configurable, critique > 100 %), simulateur d'intérêts composés, calculateur de prêt, investissements, export CSV
-- **Agent IA** : réponses contextuelles (budget, revenus, dépenses, tâches, planification), 80 conseils + 48 citations + 20 faits éducatifs (FR/EN), **coach proactif** (fréquence + heure configurables), badge non-lus, historique persistant
-- **Paramètres** : thème clair/sombre/auto, accents, densité, toggles d'animations, langue FR/EN, devises, formats de date/heure (12h/24h), séparateur décimal, **masquage des montants**, fuseau horaire, notifications, PIN de verrouillage
+- **Finances** : graphiques animés (revenus/dépenses/**épargne nette**), budget avec **alertes à niveaux** + **projection fin de mois**, simulateur d'intérêts composés (courbe **avec/sans intérêts**), calculateur de prêt, investissements, avatars de catégories, export CSV
+- **Météo** : géolocalisation ou **ville au choix** (7 villes prédéfinies, persistée)
+- **Agent IA** : réponses contextuelles (budget, revenus, dépenses, tâches, planification), 80 conseils + 48 citations + 20 faits éducatifs (FR/EN), **coach proactif** (fréquence + heure configurables), badge non-lus, **input multiligne**, historique persistant
+- **Paramètres** : profil (photo, téléphone, anniversaire), thème clair/sombre/auto, accents, densité, toggles d'animations, langue FR/EN, devises, formats de date/heure (12h/24h), séparateur décimal, **masquage des montants**, fuseau horaire, notifications, PIN de verrouillage, **sauvegarde manuelle + restauration**
 - **Raccourcis clavier** : `Ctrl+K` recherche · `Ctrl+T` tâche · `Ctrl+N` note · `Ctrl+M` transaction · `Ctrl+/` assistant · `Ctrl+Shift+L` thème · `Ctrl+,` paramètres · `Ctrl+?` aide · `P` pomodoro · `L` verrouiller
 - **Données** : import/export JSON, export CSV, réinitialisation, **migration automatique v1 → v2** du localStorage
-- **Responsive** : desktop (grille 12 colonnes), tablette (2 colonnes / empilé), mobile (empilé + sidebar tiroir)
+- **Responsive** : desktop (grille 12 colonnes), tablette (2 colonnes / empilé), mobile (empilé + **barre de navigation basse** + sidebar tiroir)
+- **Hooks maison** (`src/hooks/`) : useDebounce, useLocalStorage, useMediaQuery, useAnimation, useDragReorder, useChatbot
+- **Variants Framer Motion centralisés** (`src/utils/animations.ts`) : fadeInUp, staggerContainer, scaleIn, slideInRight/Bottom, cardHover, modalOverlay/Content, toastVariants, messageVariants, typingDot, counterVariants, pageTransition
 
 ## 🚀 Lancer
 
@@ -52,8 +57,8 @@ lifeos/src
 ├── context/          # AppProvider : composition des stores, toasts, thème, verrouillage
 ├── data/             # données initiales, base de connaissances IA (conseils, citations, faits), registre modules
 ├── i18n/             # traductions FR / EN
-├── utils/            # formateurs, calculs financiers, formatConfig (masquage/séparateur/horloge), helpers
-├── hooks/            # (composants UI : useMediaQuery, useReveal…)
+├── utils/            # formateurs, calculs financiers, formatConfig, animations (variants), constants, validators, helpers
+├── hooks/            # useDebounce, useLocalStorage, useMediaQuery, useAnimation, useDragReorder, useChatbot
 ├── components/
 │   ├── layout/       # Sidebar (pages + modules), Header (recherche, alertes, actions rapides)
 │   ├── pages/        # DashboardPage, FinancePage, PersonalPage, PremiumPage (+ SettingsContent)
