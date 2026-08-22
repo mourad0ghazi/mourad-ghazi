@@ -20,6 +20,7 @@ import {
   Settings as SettingsIcon,
   StickyNote,
   Sun,
+  UserRound,
   Wallet,
   X,
 } from 'lucide-react';
@@ -37,10 +38,12 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [avatarOpen, setAvatarOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const quickRef = useRef<HTMLDivElement>(null);
+  const avatarRef = useRef<HTMLDivElement>(null);
   const parallaxRef = useRef<HTMLDivElement>(null);
 
   const locale = lang === 'fr' ? 'fr-FR' : 'en-US';
@@ -67,6 +70,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSearchOpen(false);
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
       if (quickRef.current && !quickRef.current.contains(e.target as Node)) setQuickOpen(false);
+      if (avatarRef.current && !avatarRef.current.contains(e.target as Node)) setAvatarOpen(false);
     };
     window.addEventListener('mousedown', handler);
     return () => window.removeEventListener('mousedown', handler);
@@ -197,9 +201,6 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
       </span>
       <span className="header-brand-name" style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.02em', marginRight: 4 }}>
         LifeOS
-      </span>
-      <span className="avatar">
-        {state.profile.avatar ? <img src={state.profile.avatar} alt="" /> : initials}
       </span>
       <div className="header-greeting">
         <small>{greeting} 👋</small>
@@ -359,6 +360,65 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         >
           <SettingsIcon size={16} />
         </button>
+
+        {/* Avatar + dropdown */}
+        <div style={{ position: 'relative' }} ref={avatarRef}>
+          <button className="avatar header-avatar-btn" onClick={() => setAvatarOpen((o) => !o)} aria-label={t('set.profile')} aria-haspopup="menu" aria-expanded={avatarOpen}>
+            {state.profile.avatar ? <img src={state.profile.avatar} alt="" /> : initials}
+          </button>
+          {avatarOpen && (
+            <div className="search-results avatar-menu" style={{ width: 240, left: 'auto', right: 0, top: 'calc(100% + 10px)' }}>
+              <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
+                <strong style={{ display: 'block', fontSize: 13 }}>{state.profile.name}</strong>
+                <small style={{ color: 'var(--text-muted)', fontSize: 11, wordBreak: 'break-all' }}>{state.profile.email}</small>
+              </div>
+              <button
+                className="search-result"
+                style={{ width: '100%', border: 'none', background: 'none', textAlign: 'left' }}
+                onClick={() => {
+                  setAvatarOpen(false);
+                  useUIStore.getState().setView('settings');
+                  try {
+                    window.location.hash = '/settings';
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              >
+                <span className="sr-icon"><UserRound size={14} /></span>
+                <span className="sr-text"><strong>{t('set.profile')}</strong></span>
+              </button>
+              <button
+                className="search-result"
+                style={{ width: '100%', border: 'none', background: 'none', textAlign: 'left' }}
+                onClick={() => {
+                  setAvatarOpen(false);
+                  updateSettings({
+                    theme: state.settings.theme === 'light' ? 'dark' : state.settings.theme === 'dark' ? 'auto' : 'light',
+                  });
+                }}
+              >
+                <span className="sr-icon">{state.settings.theme === 'light' ? <Sun size={14} /> : state.settings.theme === 'dark' ? <Moon size={14} /> : <Monitor size={14} />}</span>
+                <span className="sr-text"><strong>{t('set.theme')}</strong></span>
+              </button>
+              <button
+                className="search-result"
+                style={{ width: '100%', border: 'none', background: 'none', textAlign: 'left' }}
+                onClick={() => {
+                  setAvatarOpen(false);
+                  if (state.settings.lockEnabled) lockNow();
+                  else {
+                    updateSettings({ lockEnabled: true });
+                    lockNow();
+                  }
+                }}
+              >
+                <span className="sr-icon"><Lock size={14} /></span>
+                <span className="sr-text"><strong>{t('header.lock')}</strong></span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <style>{`

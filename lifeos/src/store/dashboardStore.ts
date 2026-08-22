@@ -10,16 +10,21 @@ import { initialDashboardSlice } from '../data/initialData';
 interface DashboardState {
   layout: LayoutItem[];
   hidden: Record<string, boolean>;
+  isEditMode: boolean;
   setLayout: (layout: LayoutItem[]) => void;
   resetLayout: () => void;
   toggleWidget: (id: string) => void;
   showAllWidgets: () => void;
+  setEditMode: (on: boolean) => void;
 }
 
 export const useDashboardStore = create<DashboardState>()(
   persist(
     (set) => ({
       ...initialDashboardSlice,
+      // Mode édition de la grille : activé par défaut pour une découverte
+      // immédiate du drag & drop ; désactivable pour verrouiller le layout.
+      isEditMode: true,
       setLayout: (layout) => set({ layout }),
       resetLayout: () => set({ ...initialDashboardSlice }),
       toggleWidget: (id) =>
@@ -30,6 +35,7 @@ export const useDashboardStore = create<DashboardState>()(
           return { hidden };
         }),
       showAllWidgets: () => set({ hidden: {} }),
+      setEditMode: (isEditMode) => set({ isEditMode }),
     }),
     { name: 'lifeos:v2:dashboard', version: 1 },
   ),

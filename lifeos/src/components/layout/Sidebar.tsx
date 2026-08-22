@@ -11,13 +11,15 @@ import {
   Gem,
   LayoutDashboard,
   LineChart,
+  Pencil,
+  PencilOff,
   Settings as SettingsIcon,
   UserRound,
   X,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MODULES, SECTION_TITLES, type NavSection } from '../../data/modules';
-import { useUIStore } from '../../store';
+import { useDashboardStore, useUIStore } from '../../store';
 import { rippleHandler } from '../ui';
 import type { View, WidgetId } from '../../types';
 
@@ -30,9 +32,11 @@ const NAV_ITEMS: { view: View; icon: typeof LayoutDashboard; key: string }[] = [
 ];
 
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { t, state, isHidden, toggleWidget, showAllWidgets } = useApp();
+  const { t, state, isHidden, toggleWidget, showAllWidgets, showToast } = useApp();
   const view = useUIStore((s) => s.view);
   const setView = useUIStore((s) => s.setView);
+  const isEditMode = useDashboardStore((s) => s.isEditMode);
+  const setEditMode = useDashboardStore((s) => s.setEditMode);
 
   const navigate = (v: View) => {
     setView(v);
@@ -108,6 +112,22 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               </button>
             );
           })}
+
+          {/* Mode édition de la grille (drag & drop) */}
+          <button
+            className={`nav-item ${isEditMode ? 'active' : ''}`}
+            onClick={(e) => {
+              rippleHandler(e);
+              if (view !== 'dashboard') navigate('dashboard');
+              setEditMode(!isEditMode);
+              showToast(isEditMode ? t('grid.editOff') : t('grid.editOn'), isEditMode ? 'info' : 'success');
+            }}
+            title={t('grid.editHint')}
+          >
+            {isEditMode ? <Pencil size={16} /> : <PencilOff size={16} />}
+            <span style={{ flex: 1 }}>{t('nav.customize')}</span>
+            {isEditMode && <span className="badge accent" style={{ fontSize: 8.5 }}>ON</span>}
+          </button>
 
           {sections.map((section) => (
             <div key={section} className="nav-section">

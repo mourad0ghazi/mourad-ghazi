@@ -576,6 +576,12 @@ const fr: Dict = {
   'footer.contact': 'Une question ? Contactez-nous :',
   'footer.made': 'Conçu avec soin pour votre vie personnelle et financière.',
   'misc.relativeAgo': 'il y a {time}',
+
+  // ── v2.2 : mode édition de la grille ──
+  'grid.editHint': 'Mode édition : glissez les cartes par leur titre, redimensionnez par le coin inférieur droit',
+  'grid.editDone': 'Terminer',
+  'grid.editOn': 'Personnalisation activée',
+  'grid.editOff': 'Personnalisation désactivée — grille verrouillée',
 };
 
 const en: Dict = {
@@ -1122,6 +1128,12 @@ const en: Dict = {
   'footer.contact': 'Any question? Contact us:',
   'footer.made': 'Crafted with care for your personal and financial life.',
   'misc.relativeAgo': '{time} ago',
+
+  // ── v2.2 : grid edit mode ──
+  'grid.editHint': 'Edit mode: drag cards by their title, resize from the bottom-right corner',
+  'grid.editDone': 'Done',
+  'grid.editOn': 'Customization enabled',
+  'grid.editOff': 'Customization disabled — grid locked',
 };
 
 const dicts: Record<Lang, Dict> = { fr, en };

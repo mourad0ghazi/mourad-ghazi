@@ -5,7 +5,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, AlertTriangle } from 'lucide-react';
+import { GripVertical, X, AlertTriangle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { modalContent } from '../utils/animations';
 import { useMediaQuery, usePrefersReducedMotion } from '../hooks';
@@ -225,7 +225,7 @@ export function ConfirmDialog({
   );
 }
 
-/* ── En-tête de widget (titre + icône + actions) ── */
+/* ── En-tête de widget (poignée de drag + icône + titre + actions) ── */
 export function WidgetHead({
   icon,
   title,
@@ -241,6 +241,9 @@ export function WidgetHead({
 }) {
   return (
     <div className={`widget-head wh-card-titlebar ${className}`}>
+      <span className="drag-handle" aria-hidden="true" title="drag">
+        <GripVertical size={13} />
+      </span>
       <span className="wh-icon">{icon}</span>
       <span>
         <span className="wh-title">{title}</span>

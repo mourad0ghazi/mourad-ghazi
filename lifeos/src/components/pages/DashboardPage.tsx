@@ -9,9 +9,10 @@ import { Responsive, WidthProvider } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckSquare, Flame, Wallet } from 'lucide-react';
+import { CheckSquare, Flame, GripVertical, PencilOff, Wallet } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useMediaQuery } from '../ui';
+import { useDashboardStore } from '../../store';
 import { formatClock, formatMoney, lastNDays, monthKey, todayISO } from '../../utils/helpers';
 import { ClockWidget, WeatherWidget, CalendarWidget, PomodoroWidget } from '../modules/personal';
 import { TasksWidget, NotesWidget, HabitsWidget, JournalWidget, GoalsWidget } from '../modules/planner';
@@ -146,6 +147,8 @@ function WelcomeBanner() {
 export function DashboardPage() {
   const { state, setLayout, isHidden, t } = useApp();
   const isStacked = useMediaQuery('(max-width: 1023px)');
+  const isEditMode = useDashboardStore((s) => s.isEditMode);
+  const setEditMode = useDashboardStore((s) => s.setEditMode);
 
   const visibleWidgets = useMemo(
     () => WIDGET_ORDER.filter((id) => !isHidden(id)),
@@ -182,27 +185,45 @@ export function DashboardPage() {
           </AnimatePresence>
         </div>
       ) : (
-        <ResponsiveGrid
-          className="layout"
-          layouts={layouts}
-          breakpoints={{ lg: 1024 }}
-          cols={{ lg: 12 }}
-          rowHeight={rowHeight}
-          margin={margin}
-          containerPadding={[0, 0]}
-          draggableHandle=".wh-card-titlebar"
-          compactType="vertical"
-          onLayoutChange={(_l, allLayouts) => {
-            if (allLayouts.lg && allLayouts.lg.length > 0) setLayout(allLayouts.lg as LayoutItem[]);
-          }}
-        >
-          {visibleWidgets.map((id) => (
-            <div key={id} id={`widget-${id}`}>
-              <div className="widget-drag-hint">{t('misc.tip')} ↕</div>
-              {renderWidget(id)}
-            </div>
-          ))}
-        </ResponsiveGrid>
+        <div className={`grid-wrap ${isEditMode ? 'grid-editing' : ''}`}>
+          {isEditMode && (
+            <motion.div
+              className="grid-edit-hint"
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+            >
+              <GripVertical size={13} />
+              <span>{t('grid.editHint')}</span>
+              <button className="btn sm primary" onClick={() => setEditMode(false)}>
+                <PencilOff size={12} /> {t('grid.editDone')}
+              </button>
+            </motion.div>
+          )}
+          <ResponsiveGrid
+            className="layout"
+            layouts={layouts}
+            breakpoints={{ lg: 1024 }}
+            cols={{ lg: 12 }}
+            rowHeight={rowHeight}
+            margin={margin}
+            containerPadding={[0, 0]}
+            draggableHandle=".wh-card-titlebar"
+            isDraggable={isEditMode}
+            isResizable={isEditMode}
+            compactType="vertical"
+            onLayoutChange={(_l, allLayouts) => {
+              if (allLayouts.lg && allLayouts.lg.length > 0) setLayout(allLayouts.lg as LayoutItem[]);
+            }}
+          >
+            {visibleWidgets.map((id) => (
+              <div key={id} id={`widget-${id}`}>
+                <div className="widget-drag-hint">{t('misc.tip')} ↕</div>
+                {renderWidget(id)}
+              </div>
+            ))}
+          </ResponsiveGrid>
+        </div>
       )}
     </>
   );
