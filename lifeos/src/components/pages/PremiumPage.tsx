@@ -6,16 +6,17 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, ChevronDown, Gem, Sparkles } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronRight, Gem, Sparkles } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useUIStore } from '../../store';
-import { PREMIUM_FEATURES_META } from '../premium';
+import { FEATURE_REGISTRY } from '../features/FeaturePanels';
 
 const FAQ_KEYS = ['prem.faqFree1', 'prem.faqFree2', 'prem.faqFree3', 'prem.faqFree4', 'prem.faqFree5'];
 
 export function PremiumPage() {
   const { t, state } = useApp();
   const setView = useUIStore((s) => s.setView);
+  const setFeatureOpen = useUIStore((s) => s.setFeatureOpen);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
 
   const goDashboard = () => {
@@ -53,18 +54,20 @@ export function PremiumPage() {
         </div>
       </motion.section>
 
-      {/* ── Toutes les fonctionnalités incluses ── */}
+      {/* ── Toutes les fonctionnalités incluses (clic = ouvrir la fonctionnalité) ── */}
       <div id="premium-features" className="premium-grid premium-page-grid">
-        {PREMIUM_FEATURES_META.map((f, i) => {
+        {FEATURE_REGISTRY.map((f, i) => {
           const Icon = f.icon;
           return (
-            <motion.div
-              key={f.key}
-              className="premium-item"
+            <motion.button
+              key={f.id}
+              className="premium-item premium-item-clickable"
               initial={{ opacity: 0, y: 18 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
               transition={{ delay: i * 0.05, duration: 0.4 }}
+              onClick={() => setFeatureOpen(f.id)}
+              aria-label={t(f.key)}
             >
               <span className="pi-icon"><Icon size={16} /></span>
               <span>
@@ -74,7 +77,8 @@ export function PremiumPage() {
                 </span>
                 <span className="pi-desc">{t(f.descKey)}</span>
               </span>
-            </motion.div>
+              <ChevronRight size={14} className="pi-arrow" />
+            </motion.button>
           );
         })}
       </div>

@@ -2209,3 +2209,122 @@ table.data-table {
 :root[data-theme='dark'] .premium-page .premium-hero {
   background: linear-gradient(180deg, #0d0d0d 0%, #1a1a1a 55%, #262626 100%);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   V2.5 – Panneaux des fonctionnalités (100 % gratuit)
+   ══════════════════════════════════════════════════════════════ */
+
+.feat-panel { display: flex; flex-direction: column; gap: 6px; }
+.feat-h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.feat-note { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin: 4px 0 0; }
+.feat-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--chip);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 13px;
+}
+.feat-status.success { border-color: var(--success); background: var(--success-soft); }
+.feat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.feat-row:last-child { border-bottom: none; }
+.feat-advice {
+  display: flex;
+  gap: 10px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+
+/* Cartes de fonctionnalités cliquables */
+.premium-item-clickable {
+  position: relative;
+  text-align: left;
+  font-family: var(--font);
+  cursor: pointer;
+}
+.premium-item-clickable:hover .pi-arrow { opacity: 1; transform: translateX(2px); }
+.pi-arrow {
+  margin-left: auto;
+  align-self: center;
+  flex: none;
+  opacity: 0.35;
+  color: var(--accent);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* Banques */
+.bank-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.bank-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  padding: 10px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font);
+  transition: border-color 0.2s ease, transform 0.15s ease;
+}
+.bank-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.bank-card.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* Templates */
+.tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.tpl-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  padding: 12px;
+  font-size: 12.5px;
+}
+.tpl-card small { color: var(--text-muted); font-size: 11px; line-height: 1.45; min-height: 30px; }
+.tpl-card .btn { align-self: flex-start; margin-top: 4px; }
+
+/* Blocs de code (API) */
+.code-block {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11.5px;
+  color: var(--text-soft);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.code-key { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 11px; color: var(--accent); }
+
+/* Ligne de fonctionnalité cliquable (paramètres) */
+.feature-row-clickable { transition: background-color 0.2s ease; }
+.feature-row-clickable:hover { background: var(--accent-soft); }
+
+/* Spinner */
+.spin { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

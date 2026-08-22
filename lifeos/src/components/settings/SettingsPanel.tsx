@@ -8,6 +8,7 @@ import React, { useRef, useState } from 'react';
 import {
   Bell,
   CheckCircle2,
+  ChevronRight,
   Database,
   Download,
   Gem,
@@ -28,6 +29,8 @@ import { Modal, Toggle, rippleHandler } from '../ui';
 import { ACCENTS, CURRENCIES, TIMEZONES } from '../../utils/helpers';
 import { STORAGE_KEYS } from '../../utils/constants';
 import { isValidEmail, isValidPin } from '../../utils/validators';
+import { useUIStore } from '../../store';
+import { FEATURE_REGISTRY } from '../features/FeaturePanels';
 import type { CoachFreq, Density, HourFormat, ThemeMode } from '../../types';
 
 type Tab = 'profile' | 'appearance' | 'region' | 'dashboard' | 'notifications' | 'data' | 'security' | 'shortcuts' | 'premium';
@@ -48,6 +51,7 @@ const WEEK_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'satu
 
 export function SettingsContent({ initialTab = 'profile' }: { initialTab?: Tab }) {
   const { t, state, updateSettings, updateProfile, resetLayout, toggleWidget, isHidden, showToast, exportAll, importAll, resetAll } = useApp();
+  const setFeatureOpen = useUIStore((s) => s.setFeatureOpen);
   const [tab, setTab] = useState<Tab>(initialTab);
   const [pinDraft, setPinDraft] = useState('');
   const [lastBackupAt, setLastBackupAt] = useState<string | null>(() => {
@@ -608,29 +612,26 @@ export function SettingsContent({ initialTab = 'profile' }: { initialTab?: Tab }
             </div>
             <span className="badge success" style={{ marginLeft: 'auto', fontSize: 10 }}>✓ {t('prem.freeBadge')}</span>
           </div>
-          {[
-            ['prem.f1', 'prem.f1d'],
-            ['prem.f2', 'prem.f2d'],
-            ['prem.f3', 'prem.f3d'],
-            ['prem.f4', 'prem.f4d'],
-            ['prem.f5', 'prem.f5d'],
-            ['prem.f6', 'prem.f6d'],
-            ['prem.f7', 'prem.f7d'],
-            ['prem.f8', 'prem.f8d'],
-            ['prem.f9', 'prem.f9d'],
-            ['prem.f10', 'prem.f10d'],
-            ['prem.f11', 'prem.f11d'],
-            ['prem.f12', 'prem.f12d'],
-          ].map(([k, d]) => (
-            <div key={k} className="settings-row" style={{ padding: '9px 0' }}>
-              <span>
-                <span className="sr-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {t(k)} <span className="badge success" style={{ fontSize: 9 }}>✓ {t('prem.included')}</span>
+          {FEATURE_REGISTRY.map((f) => {
+            const Icon = f.icon;
+            return (
+              <button
+                key={f.id}
+                className="settings-row feature-row-clickable"
+                style={{ width: '100%', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' }}
+                onClick={() => setFeatureOpen(f.id)}
+              >
+                <span>
+                  <span className="sr-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Icon size={14} style={{ color: 'var(--accent)' }} />
+                    {t(f.key)} <span className="badge success" style={{ fontSize: 9 }}>✓ {t('prem.included')}</span>
+                  </span>
+                  <div className="sr-desc">{t(f.descKey)}</div>
                 </span>
-                <div className="sr-desc">{t(d)}</div>
-              </span>
-            </div>
-          ))}
+                <ChevronRight size={15} style={{ color: 'var(--text-muted)' }} />
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

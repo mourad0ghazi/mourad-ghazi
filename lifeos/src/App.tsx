@@ -15,6 +15,7 @@ import { MobileNav } from './components/layout/MobileNav';
 import { Footer } from './components/layout/Footer';
 import { Chatbot } from './components/chatbot/Chatbot';
 import { SettingsContent } from './components/settings/SettingsPanel';
+import { FeatureModal } from './components/features/FeaturePanels';
 import { DashboardPage } from './components/pages/DashboardPage';
 import { FinancePage } from './components/pages/FinancePage';
 import { PersonalPage } from './components/pages/PersonalPage';
@@ -268,6 +269,7 @@ function Shell() {
       <MobileNav />
       <Chatbot />
       <Toasts />
+      <FeatureModal />
     </div>
   );
 }

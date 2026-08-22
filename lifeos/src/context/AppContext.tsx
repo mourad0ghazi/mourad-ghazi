@@ -40,12 +40,14 @@ import {
   usePersonalStore,
   useSettingsStore,
 } from '../store';
+import { useFeatureStore } from '../store/featureStore';
 import { makeT, type TFunc } from '../i18n/translations';
 import {
   ACCENTS,
   resolveTheme,
   systemPrefersDark,
 } from '../utils/helpers';
+import { hexToRgba } from '../utils/exports';
 import { setFormatConfig } from '../utils/formatConfig';
 
 export interface Toast {
@@ -230,13 +232,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     root.setAttribute('data-anim-smoke', String(settings.animations.smoke));
     root.setAttribute('data-card-borders', String(settings.cardBorders));
     root.setAttribute('data-card-shadows', String(settings.cardShadows));
-    const accent = ACCENTS[settings.accent]?.color ?? '#6c757d';
-    const accentSoft = ACCENTS[settings.accent]?.soft ?? 'rgba(108,117,125,.14)';
+    // Accent : thèmes prédéfinis OU thèmes personnalisés (créés dans Fonctionnalités → Thèmes)
+    const custom = useFeatureStore.getState().customThemes.find((t) => t.id === settings.accent);
+    const accent = custom?.color ?? ACCENTS[settings.accent]?.color ?? '#6c757d';
+    const accentSoft = hexToRgba(accent, 0.14);
     root.style.setProperty('--accent', accent);
     root.style.setProperty('--accent-soft', accentSoft);
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', resolvedTheme === 'dark' ? '#0d0d0d' : '#f8f9fa');
-  }, [resolvedTheme, settings.accent, settings.density, settings.animations]);
+  }, [resolvedTheme, settings.accent, settings.density, settings.animations, settings.cardBorders, settings.cardShadows]);
 
   // ── Thème auto : écoute du système ──
   useEffect(() => {

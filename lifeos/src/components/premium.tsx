@@ -1,50 +1,27 @@
 // ─────────────────────────────────────────────────────────────
-// LifeOS – Fonctionnalités incluses (v2.4 : 100 % gratuit)
-// Plus aucun verrou Premium : toutes les fonctionnalités sont
-// disponibles gratuitement pour tous les utilisateurs.
+// LifeOS – Widget "Fonctionnalités incluses" (v2.5 : 100 % gratuit)
+// Chaque icône ouvre la fonctionnalité réelle correspondante.
 // ─────────────────────────────────────────────────────────────
 
 import React from 'react';
-import {
-  BellRing,
-  Bot,
-  CalendarCheck,
-  CheckCircle2,
-  CloudUpload,
-  FileText,
-  Gem,
-  Landmark,
-  LayoutTemplate,
-  Plug,
-  Smartphone,
-  Users,
-  Wifi,
-  type LucideIcon,
-} from 'lucide-react';
+import { CheckCircle2, Gem, ChevronRight } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useUIStore } from '../store';
 import { WidgetHead } from './ui';
+import { FEATURE_REGISTRY } from './features/FeaturePanels';
 import type { WidgetId } from '../types';
 
-export const PREMIUM_FEATURES_META: { key: string; descKey: string; icon: LucideIcon }[] = [
-  { key: 'prem.f1', descKey: 'prem.f1d', icon: Bot },
-  { key: 'prem.f2', descKey: 'prem.f2d', icon: FileText },
-  { key: 'prem.f3', descKey: 'prem.f3d', icon: Landmark },
-  { key: 'prem.f4', descKey: 'prem.f4d', icon: CloudUpload },
-  { key: 'prem.f5', descKey: 'prem.f5d', icon: Users },
-  { key: 'prem.f6', descKey: 'prem.f6d', icon: CalendarCheck },
-  { key: 'prem.f7', descKey: 'prem.f7d', icon: Smartphone },
-  { key: 'prem.f8', descKey: 'prem.f8d', icon: LayoutTemplate },
-  { key: 'prem.f9', descKey: 'prem.f9d', icon: BellRing },
-  { key: 'prem.f10', descKey: 'prem.f10d', icon: Plug },
-  { key: 'prem.f11', descKey: 'prem.f11d', icon: Gem },
-  { key: 'prem.f12', descKey: 'prem.f12d', icon: Wifi },
-];
+export const PREMIUM_FEATURES_META = FEATURE_REGISTRY.map((f) => ({
+  key: f.key,
+  descKey: f.descKey,
+  icon: f.icon,
+}));
 
-/** Widget du dashboard : vitrine des fonctionnalités — tout est inclus, gratuitement */
+/** Widget du dashboard : chaque carte de fonctionnalité ouvre son panneau */
 export function FeaturesWidget({ id }: { id: WidgetId }) {
   const { t } = useApp();
   const setView = useUIStore((s) => s.setView);
+  const setFeatureOpen = useUIStore((s) => s.setFeatureOpen);
 
   return (
     <div className="widget-card" style={{ background: 'linear-gradient(135deg, var(--success-soft), var(--card))' }}>
@@ -75,10 +52,16 @@ export function FeaturesWidget({ id }: { id: WidgetId }) {
         }
       />
       <div className="premium-grid">
-        {PREMIUM_FEATURES_META.map((f) => {
+        {FEATURE_REGISTRY.map((f) => {
           const Icon = f.icon;
           return (
-            <div key={f.key} className="premium-item">
+            <button
+              key={f.id}
+              className="premium-item premium-item-clickable"
+              onClick={() => setFeatureOpen(f.id)}
+              title={`${t(f.key)} — ${t('feat.open')}`}
+              aria-label={t(f.key)}
+            >
               <span className="pi-icon">
                 <Icon size={16} />
               </span>
@@ -89,7 +72,8 @@ export function FeaturesWidget({ id }: { id: WidgetId }) {
                 </span>
                 <span className="pi-desc">{t(f.descKey)}</span>
               </span>
-            </div>
+              <ChevronRight size={14} className="pi-arrow" />
+            </button>
           );
         })}
       </div>
@@ -97,5 +81,5 @@ export function FeaturesWidget({ id }: { id: WidgetId }) {
   );
 }
 
-// Rétro-compatibilité : certains fichiers importaient `PremiumWidget`
+// Rétro-compatibilité
 export const PremiumWidget = FeaturesWidget;

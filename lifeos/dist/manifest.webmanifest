@@ -1,0 +1,27 @@
+{
+  "name": "LifeOS – Mon Dashboard Personnel",
+  "short_name": "LifeOS",
+  "description": "Votre tableau de bord personnel : finances, tâches, habitudes, objectifs et agent IA. 100 % gratuit.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8f9fa",
+  "theme_color": "#343a40",
+  "lang": "fr",
+  "categories": ["productivity", "finance", "lifestyle"],
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
