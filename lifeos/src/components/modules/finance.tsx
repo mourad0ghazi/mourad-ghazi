@@ -66,6 +66,7 @@ export function FinanceWidget({ id }: { id: WidgetId }) {
   const palette = useChartPalette();
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [period, setPeriod] = useState<'3' | '6' | '12' | 'all'>('6');
   const [form, setForm] = useState({ label: '', amount: '', category: 'Autre', type: 'expense' as TxType, date: todayISO() });
   const cur = state.settings.currency;
   const thisMonth = monthKey(todayISO());
@@ -77,16 +78,17 @@ export function FinanceWidget({ id }: { id: WidgetId }) {
   const expenses = monthTx.filter((x) => x.type === 'expense').reduce((s, x) => s + x.amount, 0);
   const balance = revenue - expenses;
 
-  // 6 derniers mois
+  // Série d'évolution selon la période sélectionnée (3/6/12 mois ou tout)
   const series = useMemo(() => {
-    const months: { key: string; label: string }[] = [];
-    const d = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const m = new Date(d.getFullYear(), d.getMonth() - i, 1);
-      const key = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`;
-      months.push({ key, label: m.toLocaleDateString(state.settings.lang === 'fr' ? 'fr-FR' : 'en-US', { month: 'short' }) });
-    }
-    return months.map((m) => {
+    // Mois disponibles dans les transactions (du plus ancien au plus récent)
+    const allMonths = [...new Set(state.transactions.map((x) => monthKey(x.date)))].sort();
+    const months: { key: string; label: string }[] = allMonths.map((key) => {
+      const [y, m] = key.split('-').map(Number);
+      const label = new Date(y, m - 1, 1).toLocaleDateString(state.settings.lang === 'fr' ? 'fr-FR' : 'en-US', { month: 'short' });
+      return { key, label };
+    });
+    const sliced = period === 'all' ? months : months.slice(-Number(period));
+    return sliced.map((m) => {
       const txs = state.transactions.filter((x) => monthKey(x.date) === m.key);
       return {
         label: m.label,
@@ -95,7 +97,7 @@ export function FinanceWidget({ id }: { id: WidgetId }) {
         [t('fin.netSavings')]: txs.reduce((s, x) => s + (x.type === 'income' ? x.amount : -x.amount), 0),
       };
     });
-  }, [state.transactions, state.settings.lang, t]);
+  }, [state.transactions, state.settings.lang, t, period]);
 
   // Répartition par catégorie (mois courant)
   const catData = useMemo(() => {
@@ -134,7 +136,20 @@ export function FinanceWidget({ id }: { id: WidgetId }) {
     showToast(t('toast.exported'), 'success');
   };
 
-  const recent = [...monthTx].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
+  const recent = useMemo(() => {
+    const minMonth =
+      period === 'all'
+        ? null
+        : (() => {
+            const d = new Date();
+            d.setMonth(d.getMonth() - (Number(period) - 1));
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          })();
+    return [...monthTx]
+      .filter((x) => (minMonth ? monthKey(x.date) >= minMonth : true))
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 8);
+  }, [monthTx, period]);
 
   return (
     <div className="widget-card">
@@ -183,8 +198,17 @@ export function FinanceWidget({ id }: { id: WidgetId }) {
 
         <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 12, minHeight: 200 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              {t('fin.last6')}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {t('fin.last6')}
+              </span>
+              <div className="seg-group">
+                {(['3', '6', '12', 'all'] as const).map((p) => (
+                  <button key={p} className={`seg-btn ${period === p ? 'active' : ''}`} onClick={() => setPeriod(p)}>
+                    {p === 'all' ? t('fin.periodAll') : t(`fin.period${p}m`)}
+                  </button>
+                ))}
+              </div>
             </div>
             <ResponsiveContainer width="100%" height={190}>
               <AreaChart data={series} margin={{ top: 4, right: 4, left: -14, bottom: 0 }}>

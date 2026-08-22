@@ -40,6 +40,7 @@ interface PersonalState {
   addNote: (n?: Partial<Note>) => string;
   updateNote: (id: string, patch: Partial<Note>) => void;
   deleteNote: (id: string) => void;
+  toggleNotePin: (id: string) => void;
   // Habitudes
   addHabit: (h: Omit<Habit, 'id' | 'days' | 'missed'>) => void;
   deleteHabit: (id: string) => void;
@@ -133,6 +134,8 @@ export const usePersonalStore = create<PersonalState>()(
               title: n?.title ?? '',
               content: n?.content ?? '',
               updatedAt: new Date().toISOString().slice(0, 10),
+              tags: n?.tags ?? [],
+              pinned: n?.pinned ?? false,
             },
           ],
         }));
@@ -145,6 +148,8 @@ export const usePersonalStore = create<PersonalState>()(
           ),
         })),
       deleteNote: (id) => set((s) => ({ notes: s.notes.filter((x) => x.id !== id) })),
+      toggleNotePin: (id) =>
+        set((s) => ({ notes: s.notes.map((x) => (x.id === id ? { ...x, pinned: !x.pinned } : x)) })),
       addHabit: (h) =>
         set((s) => ({ habits: [...s.habits, { ...h, id: uid(), days: {}, missed: {} }] })),
       deleteHabit: (id) => set((s) => ({ habits: s.habits.filter((x) => x.id !== id) })),

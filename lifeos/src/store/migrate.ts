@@ -70,7 +70,11 @@ export function migrateFromV1(): void {
         tags: [],
         subtasks: [],
       })),
-      notes: old.notes ?? initialPersonalSlice.notes,
+      notes: (old.notes ?? initialPersonalSlice.notes).map((n) => ({
+        ...n,
+        tags: (n as { tags?: string[] }).tags ?? [],
+        pinned: (n as { pinned?: boolean }).pinned ?? false,
+      })),
       habits: (old.habits ?? initialPersonalSlice.habits).map((h) => ({ ...h, missed: {} })),
       journal: old.journal ?? initialPersonalSlice.journal,
       goals: (old.goals ?? initialPersonalSlice.goals).map((g) => ({ ...g, milestones: [] })),

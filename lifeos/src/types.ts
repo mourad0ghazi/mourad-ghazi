@@ -43,6 +43,9 @@ export interface Settings {
   weeklySummaryDay: string; // 'monday'…'sunday'
   animations: { page: boolean; cards: boolean; counters: boolean; smoke: boolean; parallax: boolean };
   firstDayOfWeek: 'monday' | 'sunday';
+  // v2.3
+  cardBorders: boolean; // bordures visibles sur les cartes
+  cardShadows: boolean; // ombres des cartes
 }
 
 export type Priority = 'low' | 'medium' | 'high' | 'urgent';
@@ -72,6 +75,8 @@ export interface Note {
   title: string;
   content: string;
   updatedAt: string;
+  tags: string[];
+  pinned: boolean;
 }
 
 export interface Habit {

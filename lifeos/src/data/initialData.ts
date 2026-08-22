@@ -197,18 +197,24 @@ const notes: Note[] = [
     title: 'Idées de projets freelance',
     content: '• Dashboard SaaS pour une agence immobilière\n• Site e-commerce avec paiement CMI\n• Application de suivi d\'habitudes (comme LifeOS !)',
     updatedAt: dayIn(-2),
+    tags: ['freelance', 'idées'],
+    pinned: true,
   },
   {
     id: 'n2',
     title: 'Objectifs du trimestre',
     content: '1. Terminer 3 projets freelance\n2. Épargner 15 000 MAD\n3. Publier 4 articles de blog tech\n4. Courir 5 km sans pause',
     updatedAt: dayIn(-5),
+    tags: ['objectifs'],
+    pinned: true,
   },
   {
     id: 'n3',
     title: 'Mots de passe (à ranger !)',
     content: 'Penser à utiliser un gestionnaire de mots de passe plutôt que cette note 😅',
     updatedAt: dayIn(-8),
+    tags: ['sécurité'],
+    pinned: false,
   },
 ];
 
@@ -417,6 +423,8 @@ export const initialState: AppState = {
     weeklySummaryDay: 'sunday',
     animations: { page: true, cards: true, counters: true, smoke: true, parallax: true },
     firstDayOfWeek: 'monday',
+    cardBorders: true,
+    cardShadows: true,
   },
   profile,
   tasks,

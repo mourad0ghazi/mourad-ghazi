@@ -92,6 +92,7 @@ interface AppContextValue {
   addNote: (n?: Partial<Note>) => string;
   updateNote: (id: string, patch: Partial<Note>) => void;
   deleteNote: (id: string) => void;
+  toggleNotePin: (id: string) => void;
   // Habitudes
   addHabit: (h: Omit<Habit, 'id' | 'days' | 'missed'>) => void;
   deleteHabit: (id: string) => void;
@@ -234,6 +235,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     root.setAttribute('data-anim-page', String(settings.animations.page));
     root.setAttribute('data-anim-cards', String(settings.animations.cards));
     root.setAttribute('data-anim-smoke', String(settings.animations.smoke));
+    root.setAttribute('data-card-borders', String(settings.cardBorders));
+    root.setAttribute('data-card-shadows', String(settings.cardShadows));
     const accent = ACCENTS[settings.accent]?.color ?? '#6c757d';
     const accentSoft = ACCENTS[settings.accent]?.soft ?? 'rgba(108,117,125,.14)';
     root.style.setProperty('--accent', accent);
@@ -360,6 +363,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addNote: usePersonalStore.getState().addNote,
     updateNote: usePersonalStore.getState().updateNote,
     deleteNote: usePersonalStore.getState().deleteNote,
+    toggleNotePin: usePersonalStore.getState().toggleNotePin,
     addHabit: usePersonalStore.getState().addHabit,
     deleteHabit: usePersonalStore.getState().deleteHabit,
     toggleHabitDay: usePersonalStore.getState().toggleHabitDay,

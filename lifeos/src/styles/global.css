@@ -2157,3 +2157,31 @@ table.data-table {
 }
 .header-avatar-btn:hover { transform: scale(1.05); box-shadow: var(--shadow-sm); }
 .avatar-menu { top: calc(100% + 10px); }
+
+/* ══════════════════════════════════════════════════════════════
+   V2.3 – Bordures/ombres configurables, notes épinglées
+   ══════════════════════════════════════════════════════════════ */
+
+/* Cartes sans bordures (paramètre Apparence) */
+:root[data-card-borders='false'] .widget-card,
+:root[data-card-borders='false'] .note-card,
+:root[data-card-borders='false'] .stat-box,
+:root[data-card-borders='false'] .pricing-card,
+:root[data-card-borders='false'] .faq-item {
+  border-color: transparent;
+}
+:root[data-card-borders='false'] .grid-editing .widget-card {
+  border-color: transparent;
+}
+
+/* Cartes sans ombres (paramètre Apparence) */
+:root[data-card-shadows='false'] .widget-card,
+:root[data-card-shadows='false'] .note-card,
+:root[data-card-shadows='false'] .stat-box,
+:root[data-card-shadows='false'] .kanban-card,
+:root[data-card-shadows='false'] .pricing-card {
+  box-shadow: none;
+}
+:root[data-card-shadows='false'] .widget-card:hover {
+  box-shadow: none;
+}

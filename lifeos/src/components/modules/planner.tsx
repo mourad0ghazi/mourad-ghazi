@@ -17,7 +17,9 @@ import {
   Moon,
   NotebookPen,
   Pencil,
+  Pin,
   Plus,
+  Search,
   Smile,
   StickyNote,
   Target,
@@ -50,18 +52,22 @@ export function TasksWidget({ id }: { id: WidgetId }) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [subText, setSubText] = useState<string>('');
+  const [taskSearch, setTaskSearch] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Ordre = ordre personnalisé de l'utilisateur (réordonnable par drag & drop).
   // Les tâches terminées sont regroupées en fin de liste.
   const list = useMemo(() => {
-    const base = [...state.tasks];
+    const q = taskSearch.trim().toLowerCase();
+    const base = q
+      ? state.tasks.filter((x) => (x.title + ' ' + x.tags.join(' ')).toLowerCase().includes(q))
+      : state.tasks;
     const active = base.filter((x) => !x.done);
     const done = base.filter((x) => x.done);
     if (filter === 'active') return active;
     if (filter === 'done') return done;
     return [...active, ...done];
-  }, [state.tasks, filter]);
+  }, [state.tasks, filter, taskSearch]);
 
   // Raccourci clavier / action rapide : focus sur le champ "nouvelle tâche"
   useEffect(() => {
@@ -147,6 +153,10 @@ export function TasksWidget({ id }: { id: WidgetId }) {
               {t(`tasks.${f}`)}
             </button>
           ))}
+        </div>
+        <div className="header-search" style={{ position: 'static', height: 30, marginBottom: 10 }}>
+          <Search size={13} style={{ color: 'var(--text-muted)' }} />
+          <input value={taskSearch} placeholder={t('tasks.searchPh')} onChange={(e) => setTaskSearch(e.target.value)} />
         </div>
         <div className="scroll-y" style={{ flex: 1, minHeight: 120 }}>
           {list.length === 0 && (
@@ -274,8 +284,10 @@ export function TasksWidget({ id }: { id: WidgetId }) {
 
 /* ══════════════ NOTES ══════════════ */
 export function NotesWidget({ id }: { id: WidgetId }) {
-  const { t, state, addNote, updateNote, deleteNote } = useApp();
+  const { t, state, addNote, updateNote, deleteNote, toggleNotePin } = useApp();
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [tagText, setTagText] = useState('');
   const dateLocale = state.settings.lang === 'fr' ? frLocale : enUS;
 
   useEffect(() => {
@@ -292,6 +304,27 @@ export function NotesWidget({ id }: { id: WidgetId }) {
     }
   };
 
+  // Tri : épinglées d'abord, puis recherche insensible à la casse
+  const visibleNotes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const sorted = [...state.notes].sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      return b.updatedAt.localeCompare(a.updatedAt);
+    });
+    if (!q) return sorted;
+    return sorted.filter((n) => (n.title + ' ' + n.content + ' ' + n.tags.join(' ')).toLowerCase().includes(q));
+  }, [state.notes, search]);
+
+  const addTag = (noteId: string) => {
+    const tag = tagText.replace(/[#\s]/g, '').slice(0, 24);
+    if (!tag) return;
+    const note = state.notes.find((n) => n.id === noteId);
+    if (note && !note.tags.includes(tag)) {
+      updateNote(noteId, { tags: [...note.tags, tag] });
+    }
+    setTagText('');
+  };
+
   return (
     <div className="widget-card">
       <WidgetHead
@@ -305,10 +338,26 @@ export function NotesWidget({ id }: { id: WidgetId }) {
         }
       />
       <div className="widget-body scroll-y" style={{ gap: 10 }}>
-        {state.notes.length === 0 && <EmptyState icon={<StickyNote size={22} />} text={t('notes.empty')} />}
-        {state.notes.map((note) => (
-          <div key={note.id} className="note-card">
-            <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          className="input"
+          style={{ height: 30, fontSize: 12 }}
+          placeholder={t('notes.searchPh')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        {visibleNotes.length === 0 && <EmptyState icon={<StickyNote size={22} />} text={t('notes.empty')} />}
+        {visibleNotes.map((note) => (
+          <div key={note.id} className="note-card" style={note.pinned ? { borderColor: 'var(--accent)' } : undefined}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                className="icon-btn"
+                style={{ width: 22, height: 22, opacity: note.pinned ? 1 : 0.35, color: note.pinned ? 'var(--accent)' : undefined }}
+                title={note.pinned ? t('notes.unpin') : t('notes.pin')}
+                onClick={() => toggleNotePin(note.id)}
+                aria-label={note.pinned ? t('notes.unpin') : t('notes.pin')}
+              >
+                <Pin size={11} />
+              </button>
               <input
                 className="note-title-input"
                 value={note.title}
@@ -325,7 +374,41 @@ export function NotesWidget({ id }: { id: WidgetId }) {
               placeholder={t('notes.contentPh')}
               onChange={(e) => updateNote(note.id, { content: e.target.value })}
             />
-            <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>
+            {note.tags.length > 0 && (
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 4 }}>
+                {note.tags.map((tag) => (
+                  <button
+                    key={tag}
+                    className="badge accent"
+                    style={{ border: 'none', cursor: 'pointer', fontSize: 9.5 }}
+                    onClick={() => updateNote(note.id, { tags: note.tags.filter((x) => x !== tag) })}
+                    title={t('act.remove')}
+                  >
+                    #{tag} ✕
+                  </button>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+              <input
+                className="input"
+                style={{ height: 26, fontSize: 11.5 }}
+                placeholder={t('notes.tagPh')}
+                value={tagText}
+                onChange={(e) => setTagText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addTag(note.id);
+                  }
+                }}
+              />
+              <button className="btn sm" onClick={() => addTag(note.id)} aria-label={t('act.add')}>
+                <Plus size={12} />
+              </button>
+            </div>
+            <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 6, display: 'flex', gap: 6, alignItems: 'center' }}>
+              {note.pinned && <span className="badge accent" style={{ fontSize: 8.5 }}>{t('notes.pinned')}</span>}
               {t('notes.updated')} {relativeUpdated(note.updatedAt)}
             </div>
           </div>

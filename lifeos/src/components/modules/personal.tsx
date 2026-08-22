@@ -469,7 +469,14 @@ export function CalendarWidget({ id }: { id: WidgetId }) {
                 <div
                   key={iso}
                   className={`cal-cell ${isOther ? 'other' : ''} ${isToday ? 'today' : ''} ${isSel ? 'selected' : ''}`}
-                  onClick={() => setSelected(iso)}
+                  title={isToday ? t('cal.today') : undefined}
+                  onClick={() => {
+                    setSelected(iso);
+                  }}
+                  onDoubleClick={() => {
+                    setForm((f) => ({ ...f, title: '', time: '', note: '', date: iso }));
+                    setModalOpen(true);
+                  }}
                 >
                   {d.getDate()}
                   {hasEvents && <span className="cal-dot" />}

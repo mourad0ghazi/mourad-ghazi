@@ -582,6 +582,28 @@ const fr: Dict = {
   'grid.editDone': 'Terminer',
   'grid.editOn': 'Personnalisation activée',
   'grid.editOff': 'Personnalisation désactivée — grille verrouillée',
+
+  // ── v2.3 : notes / objectifs épargne / période / apparence ──
+  'notes.searchPh': 'Rechercher dans les notes…',
+  'notes.pin': 'Épingler',
+  'notes.unpin': 'Désépingler',
+  'notes.tagPh': 'tag (Entrée pour ajouter)',
+  'notes.pinned': 'Épinglée',
+  'fin.periodAll': 'Tout',
+  'fin.period3m': '3 mois',
+  'fin.period6m': '6 mois',
+  'fin.period12m': '12 mois',
+  'fin.period': 'Période',
+  'sav.countdown': 'jours restants',
+  'sav.monthlyNeeded': 'mensualité nécessaire',
+  'sav.complete': 'Objectif atteint 🎉',
+  'set.cardBorders': 'Bordures des cartes',
+  'set.cardBordersDesc': 'Afficher les bordures autour des cartes',
+  'set.cardShadows': 'Ombres des cartes',
+  'set.cardShadowsDesc': 'Afficher les ombres portées des cartes',
+  'set.logout': 'Déconnexion',
+  'set.logoutDesc': 'Réinitialise les données de la session (les données persistent)',
+  'tasks.searchPh': 'Filtrer les tâches…',
 };
 
 const en: Dict = {
@@ -1134,6 +1156,28 @@ const en: Dict = {
   'grid.editDone': 'Done',
   'grid.editOn': 'Customization enabled',
   'grid.editOff': 'Customization disabled — grid locked',
+
+  // ── v2.3 : notes / savings goals / period / appearance ──
+  'notes.searchPh': 'Search notes…',
+  'notes.pin': 'Pin',
+  'notes.unpin': 'Unpin',
+  'notes.tagPh': 'tag (Enter to add)',
+  'notes.pinned': 'Pinned',
+  'fin.periodAll': 'All',
+  'fin.period3m': '3 months',
+  'fin.period6m': '6 months',
+  'fin.period12m': '12 months',
+  'fin.period': 'Period',
+  'sav.countdown': 'days left',
+  'sav.monthlyNeeded': 'monthly needed',
+  'sav.complete': 'Goal reached 🎉',
+  'set.cardBorders': 'Card borders',
+  'set.cardBordersDesc': 'Show borders around cards',
+  'set.cardShadows': 'Card shadows',
+  'set.cardShadowsDesc': 'Show card drop shadows',
+  'set.logout': 'Log out',
+  'set.logoutDesc': 'Resets the session state (data persists)',
+  'tasks.searchPh': 'Filter tasks…',
 };
 
 const dicts: Record<Lang, Dict> = { fr, en };

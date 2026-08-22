@@ -242,6 +242,20 @@ export function SettingsContent({ initialTab = 'profile' }: { initialTab?: Tab }
               ))}
             </div>
           </div>
+          <div className="settings-row">
+            <span>
+              <span className="sr-label">{t('set.cardBorders')}</span>
+              <div className="sr-desc">{t('set.cardBordersDesc')}</div>
+            </span>
+            <Toggle on={s.cardBorders} onChange={(v) => updateSettings({ cardBorders: v })} />
+          </div>
+          <div className="settings-row">
+            <span>
+              <span className="sr-label">{t('set.cardShadows')}</span>
+              <div className="sr-desc">{t('set.cardShadowsDesc')}</div>
+            </span>
+            <Toggle on={s.cardShadows} onChange={(v) => updateSettings({ cardShadows: v })} />
+          </div>
           <div style={{ margin: '12px 0 4px' }}>
             <span className="sr-label">{t('set.animations')}</span>
           </div>
@@ -540,6 +554,27 @@ export function SettingsContent({ initialTab = 'profile' }: { initialTab?: Tab }
               <div className="sr-desc">🔒 {t('journal.protected')}</div>
             </span>
             <Toggle on={s.journalProtected} onChange={(v) => updateSettings({ journalProtected: v })} />
+          </div>
+          <div className="settings-row" style={{ borderTop: '1px solid var(--border)', marginTop: 10 }}>
+            <span>
+              <span className="sr-label">{t('set.logout')}</span>
+              <div className="sr-desc">{t('set.logoutDesc')}</div>
+            </span>
+            <button
+              className="btn danger"
+              onClick={() => {
+                if (window.confirm(t('set.logout') + ' ?')) {
+                  try {
+                    localStorage.removeItem('lifeos:last-backup');
+                  } catch {
+                    /* ignore */
+                  }
+                  window.location.reload();
+                }
+              }}
+            >
+              {t('set.logout')}
+            </button>
           </div>
         </div>
       )}

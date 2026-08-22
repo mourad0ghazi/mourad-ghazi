@@ -211,6 +211,7 @@ export function DashboardPage() {
             draggableHandle=".wh-card-titlebar"
             isDraggable={isEditMode}
             isResizable={isEditMode}
+            resizeHandles={['se']}
             compactType="vertical"
             onLayoutChange={(_l, allLayouts) => {
               if (allLayouts.lg && allLayouts.lg.length > 0) setLayout(allLayouts.lg as LayoutItem[]);

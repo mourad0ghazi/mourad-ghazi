@@ -21,7 +21,7 @@ import {
 } from 'recharts';
 import { useApp } from '../../context/AppContext';
 import { AnimatedNumber, ConfirmDialog, Modal, ProgressBar, WidgetHead, rippleHandler } from '../ui';
-import { formatMoney, formatPct, percent, todayISO } from '../../utils/helpers';
+import { daysUntil, formatMoney, formatPct, percent, todayISO } from '../../utils/helpers';
 import { CHART_COLORS } from '../../data/modules';
 import type { InvestmentType, WidgetId } from '../../types';
 
@@ -116,6 +116,10 @@ export function SavingsWidget({ id }: { id: WidgetId }) {
         {state.savingsGoals.length === 0 && <div className="empty-state"><PiggyBank size={20} /><span>{t('misc.none')}</span></div>}
         {state.savingsGoals.map((g) => {
           const pct = percent(g.saved, g.target);
+          const left = g.deadline ? daysUntil(g.deadline) : null;
+          const remaining = Math.max(0, g.target - g.saved);
+          const monthlyNeeded =
+            left !== null && left > 0 && remaining > 0 ? remaining / Math.max(1, Math.ceil(left / 30.4)) : null;
           return (
             <div key={g.id} style={{ border: '1px solid var(--border)', borderRadius: 13, padding: 12, background: 'var(--card)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -129,9 +133,20 @@ export function SavingsWidget({ id }: { id: WidgetId }) {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--text-muted)', margin: '4px 0 6px' }}>
                 <span>{formatMoney(g.saved, cur)} / {formatMoney(g.target, cur)}</span>
-                <span>{pct >= 100 ? '🎉' : g.deadline ? t('sav.onTrack') : ''}</span>
+                <span>
+                  {pct >= 100
+                    ? t('sav.complete')
+                    : left !== null && left >= 0
+                      ? `${left} ${t('sav.countdown')}`
+                      : ''}
+                </span>
               </div>
               <ProgressBar value={pct} color={pct >= 100 ? 'success' : 'accent'} height={7} />
+              {monthlyNeeded !== null && remaining > 0 && (
+                <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 4 }}>
+                  {t('sav.monthlyNeeded')} : <strong style={{ color: 'var(--text-soft)' }}>{formatMoney(Math.round(monthlyNeeded), cur)}</strong>
+                </div>
+              )}
               <button className="btn sm ghost" style={{ marginTop: 8 }} onClick={(e) => { rippleHandler(e); setContribId(g.id); }}>
                 <Wallet2 size={13} /> {t('sav.contribute')}
               </button>
