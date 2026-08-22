@@ -14,6 +14,9 @@ export interface Profile {
   avatar: string | null; // dataURL ou null
 }
 
+export type HourFormat = '24' | '12';
+export type CoachFreq = 'never' | 'daily' | 'weekly';
+
 export interface Settings {
   lang: Lang;
   currency: string;
@@ -27,16 +30,38 @@ export interface Settings {
   coachMode: boolean;
   lockEnabled: boolean;
   pin: string | null;
+  // v2
+  hourFormat: HourFormat;
+  decimalSep: ',' | '.';
+  hideAmounts: boolean;
+  journalProtected: boolean;
+  budgetWarningThreshold: number; // % seuil warning (défaut 80)
+  coachFreq: CoachFreq;
+  coachTime: string; // HH:mm
+  weeklySummaryDay: string; // 'monday'…'sunday'
+  animations: { page: boolean; cards: boolean; counters: boolean; smoke: boolean; parallax: boolean };
+  firstDayOfWeek: 'monday' | 'sunday';
 }
 
-export type Priority = 'low' | 'medium' | 'high';
+export type Priority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface Subtask {
+  id: string;
+  title: string;
+  done: boolean;
+}
+
+export type TaskStatus = 'todo' | 'doing' | 'done';
 
 export interface Task {
   id: string;
   title: string;
-  done: boolean;
+  done: boolean; // rétro-compat : équivalent à status === 'done'
+  status: TaskStatus;
   priority: Priority;
   due?: string; // YYYY-MM-DD
+  tags: string[];
+  subtasks: Subtask[];
   createdAt: string;
 }
 
@@ -53,6 +78,7 @@ export interface Habit {
   icon: string;
   color: string;
   days: Record<string, boolean>; // 'YYYY-MM-DD' -> coché
+  missed: Record<string, boolean>; // 'YYYY-MM-DD' -> manqué (✗)
 }
 
 export interface JournalEntry {
@@ -60,6 +86,12 @@ export interface JournalEntry {
   date: string; // YYYY-MM-DD
   content: string;
   mood: number; // 1..5
+}
+
+export interface Milestone {
+  id: string;
+  label: string;
+  done: boolean;
 }
 
 export interface Goal {
@@ -70,6 +102,7 @@ export interface Goal {
   deadline: string; // YYYY-MM-DD
   progress: number; // 0..100
   category: string;
+  milestones: Milestone[];
 }
 
 export interface CalendarEvent {
@@ -169,3 +202,6 @@ export type WidgetId =
   | 'investments'
   | 'loan'
   | 'premium';
+
+/** Vues / pages de l'application */
+export type View = 'dashboard' | 'finances' | 'personal' | 'premium' | 'settings';

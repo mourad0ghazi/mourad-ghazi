@@ -8,6 +8,7 @@ export interface KnowledgeBase {
   finance: string[];
   productivity: string[];
   quotes: string[];
+  facts: string[];
 }
 
 export const KNOWLEDGE: Record<'fr' | 'en', KnowledgeBase> = {
@@ -122,6 +123,28 @@ export const KNOWLEDGE: Record<'fr' | 'en', KnowledgeBase> = {
       '« Le secret pour avancer, c\'est de commencer. » — Mark Twain',
       '« La persévérance n\'est pas une longue course ; c\'est beaucoup de petites courses l\'une après l\'autre. » — Walter Elliot',
     ],
+    facts: [
+      '💡 Saviez-vous ? Épargner 100 MAD par mois à 8 % pendant 30 ans génère ~150 000 MAD, dont plus de la moitié en intérêts composés.',
+      '💡 Un fonds d\'urgence de 3 à 6 mois de dépenses réduit le stress financier de façon spectaculaire.',
+      '💡 La règle de 72 : à 8 % par an, votre capital double en 9 ans (72 ÷ 8).',
+      '💡 En moyenne, nous prenons ~35 000 décisions par jour : les habitudes automatisent les plus importantes.',
+      '💡 Il faut 66 jours en moyenne pour ancrer une nouvelle habitude, pas 21.',
+      '💡 Une interruption au travail coûte en moyenne 23 minutes de concentration.',
+      '💡 Le cerveau ne peut tenir une concentration profonde que 90 à 120 minutes d\'affilée.',
+      '💡 Écrire ses objectifs multiplie par 1,4 la probabilité de les atteindre.',
+      '💡 La loi de Parkinson : toute tâche s\'étale pour remplir le temps qu\'on lui accorde.',
+      '💡 Moins de 5 % des adultes tiennent un budget écrit, alors que c\'est le geste n°1 pour améliorer ses finances.',
+      '💡 Les intérêts composés ont été appelés par Einstein "la 8e merveille du monde".',
+      '💡 Un crédit à 15 % double votre dette en moins de 5 ans si vous ne remboursez que les intérêts.',
+      '💡 Le sommeil est un levier de productivité : une nuit de 7-8 h améliore la mémoire de 20 à 40 %.',
+      '💡 Marcher 30 minutes par jour augmente les performances cognitives d\'environ 12 %.',
+      '💡 La technique Pomodoro a été inventée en 1987 par Francesco Cirillo avec un minuteur en forme de tomate.',
+      '💡 Les personnes qui méditent régulièrement voient leur capacité d\'attention augmenter de ~14 % en 10 semaines.',
+      '💡 Le "deep work" (2-4 h sans distraction) produit souvent plus qu\'une journée entière fragmentée.',
+      '💡 Diversifier un portefeuille sur 10+ actifs réduit fortement le risque sans sacrifier le rendement attendu.',
+      '💡 Un euro investi à 20 ans vaut ~7 fois un euro investi à 40 ans (à 7 % sur 40 ans vs 20 ans).',
+      '💡 80 % des millionnaires "faits maison" ont construit leur patrimoine via l\'épargne régulière et les investissements, pas la chance.',
+    ],
   },
   en: {
     finance: [
@@ -233,6 +256,28 @@ export const KNOWLEDGE: Record<'fr' | 'en', KnowledgeBase> = {
       '"Act as if what you do makes a difference. It does." — William James',
       '"The secret of getting ahead is getting started." — Mark Twain',
       '"Perseverance is not a long race; it is many short races one after another." — Walter Elliot',
+    ],
+    facts: [
+      '💡 Did you know? Saving 100/month at 8% for 30 years yields ~150,000, more than half of it compound interest.',
+      '💡 An emergency fund of 3 to 6 months of expenses dramatically reduces financial stress.',
+      '💡 Rule of 72: at 8% per year, your capital doubles in 9 years (72 ÷ 8).',
+      '💡 On average, we make ~35,000 decisions a day: habits automate the important ones.',
+      '💡 It takes 66 days on average to anchor a new habit, not 21.',
+      '💡 A work interruption costs about 23 minutes of focus on average.',
+      '💡 The brain can only sustain deep focus for 90 to 120 minutes at a time.',
+      '💡 Writing down your goals multiplies by 1.4 the probability of reaching them.',
+      '💡 Parkinson\'s law: any task expands to fill the time you give it.',
+      '💡 Less than 5% of adults keep a written budget, yet it is the #1 move to improve finances.',
+      '💡 Compound interest was called "the 8th wonder of the world" by Einstein.',
+      '💡 A 15% loan doubles your debt in less than 5 years if you only pay the interest.',
+      '💡 Sleep is a productivity lever: 7-8 hours a night improves memory by 20 to 40%.',
+      '💡 Walking 30 minutes a day boosts cognitive performance by about 12%.',
+      '💡 The Pomodoro technique was invented in 1987 by Francesco Cirillo with a tomato-shaped timer.',
+      '💡 Regular meditators see their attention span grow by ~14% over 10 weeks.',
+      '💡 Deep work (2-4 hours without distraction) often produces more than a full fragmented day.',
+      '💡 Diversifying a portfolio across 10+ assets strongly reduces risk without sacrificing expected returns.',
+      '💡 One dollar invested at 20 is worth ~7x a dollar invested at 40 (at 7% over 40 vs 20 years).',
+      '💡 80% of self-made millionaires built wealth through consistent saving and investing, not luck.',
     ],
   },
 };

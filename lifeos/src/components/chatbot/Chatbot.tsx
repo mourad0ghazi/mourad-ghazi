@@ -53,6 +53,40 @@ export function buildReply(raw: string, state: AppState, lang: 'fr' | 'en', coac
       : 'You are welcome! 😊 I am here 24/7. Feel free to ask for a tip or a dashboard summary.';
   }
 
+  if (has('au revoir', 'bye', 'adieu', 'goodbye', 'besslama', 'à plus', 'a plus')) {
+    return fr
+      ? 'Au revoir ! 👋 Pensez à cocher vos habitudes aujourd\'hui. Je reste là si vous avez besoin de conseils.'
+      : 'Goodbye! 👋 Do not forget to check your habits today. I am here whenever you need advice.';
+  }
+
+  if (has('aide', 'help', 'que peux', 'what can you do', 'commandes', 'instructions')) {
+    return fr
+      ? 'Voici ce que je peux faire pour vous :\n\n• "Quel est mon budget ce mois ?" — analyse du budget\n• "Aide-moi à planifier ma journée" — plan basé sur vos tâches\n• "Donne-moi un conseil financier" — conseils épargne/investissement\n• "Un conseil de productivité ?" — méthodes et habitudes\n• "Fais le point sur mon dashboard" — synthèse complète\n• "Une citation motivante ?" — inspiration\n• "Savais-tu ?" — faits éducatifs'
+      : 'Here is what I can do for you:\n\n• "What is my budget this month?" — budget analysis\n• "Help me plan my day" — plan based on your tasks\n• "Give me a financial tip" — saving/investing advice\n• "A productivity tip?" — methods and habits\n• "Summarize my dashboard" — full overview\n• "A motivational quote?" — inspiration\n• "Did you know?" — educational facts';
+  }
+
+  if (has('savais', 'did you know', 'fact', 'fait', 'apprendre', 'curiosit', 'info intéressante', 'interesting')) {
+    return pick(K.facts);
+  }
+
+  if (has('revenus', 'revenue', 'income', 'gagner', 'salaire', 'salary')) {
+    const incomes = monthTx.filter((x) => x.type === 'income');
+    const detail = incomes
+      .slice(0, 5)
+      .map((x) => `• ${x.label} : ${formatMoney(x.amount, cur)} (${formatDate(x.date, state.settings.dateFormat)})`)
+      .join('\n');
+    return fr
+      ? `💵 Vos revenus ce mois : ${formatMoney(revenue, cur)} sur ${incomes.length} entrée(s).\n\n${detail}${incomes.length > 5 ? `\n• …et ${incomes.length - 5} autre(s)` : ''}\n\n💡 Astuce : diversifiez vos sources de revenus (salaire + freelance + investissements).`
+      : `💵 Your income this month: ${formatMoney(revenue, cur)} across ${incomes.length} entr${incomes.length > 1 ? 'ies' : 'y'}.\n\n${detail}${incomes.length > 5 ? `\n• …and ${incomes.length - 5} more` : ''}\n\n💡 Tip: diversify your income streams (salary + freelance + investments).`;
+  }
+
+  if (has('dépenses', 'depenses', 'expenses', 'spending', 'depensé', 'spent')) {
+    const topCat = [...spentByCat.entries()].sort((a, b) => b[1] - a[1])[0];
+    return fr
+      ? `💸 Vous avez dépensé ${formatMoney(expenses, cur)} ce mois.\n\n${topCat ? `Plus grosse catégorie : ${topCat[0]} (${formatMoney(topCat[1], cur)}).` : ''}\n\n${overCats.length > 0 ? `⚠️ ${overCats.length} catégorie(s) dépassent leur budget : ${overCats.map((c) => c.name).join(', ')}.` : 'Aucun dépassement de budget 👏'}`
+      : `💸 You have spent ${formatMoney(expenses, cur)} this month.\n\n${topCat ? `Biggest category: ${topCat[0]} (${formatMoney(topCat[1], cur)}).` : ''}\n\n${overCats.length > 0 ? `⚠️ ${overCats.length} categor${overCats.length > 1 ? 'ies' : 'y'} over budget: ${overCats.map((c) => c.name).join(', ')}.` : 'No budget overruns 👏'}`;
+  }
+
   if (has('budget')) {
     const totalPlanned = state.budget.reduce((s, c) => s + c.planned, 0);
     const totalSpent = state.budget.reduce((s, c) => s + (spentByCat.get(c.name) ?? 0), 0);
@@ -160,17 +194,60 @@ export function buildReply(raw: string, state: AppState, lang: 'fr' | 'en', coac
   return (fr ? 'Je n\'ai pas bien compris. 🤔 Essayez :\n\n• "Quel est mon budget ce mois ?"\n• "Aide-moi à planifier ma journée"\n• "Donne-moi un conseil financier"\n• "Fais le point sur mon dashboard"\n• "Une citation motivante ?"' : 'I did not quite understand. 🤔 Try:\n\n• "What is my budget this month?"\n• "Help me plan my day"\n• "Give me a financial tip"\n• "Summarize my dashboard"\n• "A motivational quote?"') + coachLine;
 }
 
+/** Message proactif du coach basé sur les données réelles */
+export function buildCoachMessage(state: AppState, lang: 'fr' | 'en'): string {
+  const fr = lang === 'fr';
+  const K = KNOWLEDGE[lang];
+  const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+  const cur = state.settings.currency;
+  const thisMonth = monthKey(todayISO());
+  const spentByCat = new Map<string, number>();
+  state.transactions
+    .filter((x) => x.type === 'expense' && monthKey(x.date) === thisMonth)
+    .forEach((x) => spentByCat.set(x.category, (spentByCat.get(x.category) ?? 0) + x.amount));
+  const overCats = state.budget.filter((c) => (spentByCat.get(c.name) ?? 0) > c.planned);
+  const overdue = state.tasks.filter((x) => !x.done && x.due && x.due < todayISO());
+  const dueToday = state.tasks.filter((x) => !x.done && x.due === todayISO()).length;
+
+  const parts: string[] = [];
+  if (overCats.length > 0) {
+    parts.push(
+      fr
+        ? `⚠️ Budget : ${overCats.map((c) => `« ${c.name} » dépassé de ${formatMoney((spentByCat.get(c.name) ?? 0) - c.planned, cur)}`).join(', ')}.`
+        : `⚠️ Budget: ${overCats.map((c) => `"${c.name}" over by ${formatMoney((spentByCat.get(c.name) ?? 0) - c.planned, cur)}`).join(', ')}.`,
+    );
+  }
+  if (overdue.length > 0) {
+    parts.push(
+      fr
+        ? `⏰ ${overdue.length} tâche(s) en retard : ${overdue.slice(0, 2).map((t) => `« ${t.title} »`).join(', ')}.`
+        : `⏰ ${overdue.length} overdue task(s): ${overdue.slice(0, 2).map((t) => `"${t.title}"`).join(', ')}.`,
+    );
+  } else if (dueToday > 0) {
+    parts.push(fr ? `📌 ${dueToday} tâche(s) à finaliser aujourd'hui.` : `📌 ${dueToday} task(s) due today.`);
+  }
+  if (parts.length === 0) {
+    parts.push(fr ? pick(K.finance) : pick(K.finance));
+  } else {
+    parts.push(fr ? `💡 Conseil du jour : ${pick(K.finance)}` : `💡 Tip of the day: ${pick(K.finance)}`);
+  }
+  const header = fr ? '🎓 Coach LifeOS — point du jour :' : '🎓 LifeOS Coach — daily check-in:';
+  return `${header}\n\n${parts.map((p) => `• ${p}`).join('\n')}`;
+}
+
 /* ── Widget de chat ── */
 export function Chatbot() {
-  const { t, state, lang, pushChat, clearChat } = useApp();
+  const { t, state, lang, pushChat, clearChat, setChatUnread, chatUnread, coachLastAt, setCoachLastAt } = useApp();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const greetedRef = useRef(false);
+  const coachRef = useRef(false);
 
   const messages = state.chatHistory;
+  const unread = chatUnread;
   const suggestions = useMemo(() => SUGGESTED[lang].slice(0, 4), [lang]);
 
   // Message de bienvenue initial (garde anti-double en StrictMode)
@@ -183,10 +260,50 @@ export function Chatbot() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Coach proactif : analyse selon la fréquence configurée
+  useEffect(() => {
+    if (coachRef.current) return;
+    coachRef.current = true;
+    const s = state.settings;
+    if (!s.coachMode || !s.notifications || s.coachFreq === 'never') return;
+    const now = new Date();
+    const [h, m] = (s.coachTime || '09:00').split(':').map(Number);
+    const targetTime = new Date(now);
+    targetTime.setHours(h || 9, m || 0, 0, 0);
+    if (now < targetTime) return; // pas encore l'heure configurée
+    const last = coachLastAt ? new Date(coachLastAt) : null;
+    const due =
+      !last ||
+      (s.coachFreq === 'daily' && now.toDateString() !== last.toDateString()) ||
+      (s.coachFreq === 'weekly' && now.getTime() - last.getTime() > 6 * 86400000);
+    if (!due) return;
+    setCoachLastAt(now.toISOString());
+    pushChat('bot', buildCoachMessage(state, lang));
+    setChatUnread(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Raccourci Ctrl+/ : ouvrir/fermer l'assistant
+  useEffect(() => {
+    const handler = () => {
+      setOpen((o) => {
+        if (!o) setChatUnread(0);
+        return !o;
+      });
+    };
+    window.addEventListener('lifeos:chat-toggle', handler);
+    return () => window.removeEventListener('lifeos:chat-toggle', handler);
+  }, [setChatUnread]);
+
   // Scroll auto
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [messages, typing, open]);
+
+  // Marquer comme lu à l'ouverture
+  useEffect(() => {
+    if (open) setChatUnread(0);
+  }, [open, setChatUnread]);
 
   const send = (text?: string) => {
     const msg = (text ?? input).trim();
@@ -215,8 +332,8 @@ export function Chatbot() {
           aria-label={t('chat.title')}
         >
           <div className="chat-head">
-            <div style={{ position: 'relative', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,.18)', display: 'grid', placeItems: 'center' }}>
-              <Bot size={22} />
+            <div style={{ position: 'relative', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,.18)', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+              <img src={`${import.meta.env.BASE_URL}assets/avatar-bot.png`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
               <span style={{ position: 'absolute', bottom: 1, right: 1, width: 10, height: 10, borderRadius: '50%', background: '#7fd39a', border: '2px solid #495057' }} />
             </div>
             <div style={{ flex: 1 }}>
@@ -289,11 +406,39 @@ export function Chatbot() {
 
       <button
         className="chat-fab"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          setOpen((o) => {
+            if (!o) setChatUnread(0);
+            return !o;
+          });
+        }}
         aria-label={t('chat.open')}
       >
         {open ? <X size={24} /> : <MessageSquare size={24} />}
-        {!open && <span className="fab-dot" />}
+        {!open && (unread > 0 ? (
+          <span
+            className="fab-badge"
+            style={{
+              position: 'absolute',
+              top: -4,
+              right: -4,
+              minWidth: 20,
+              height: 20,
+              padding: '0 5px',
+              borderRadius: 99,
+              background: 'var(--danger)',
+              color: '#fff',
+              fontSize: 11,
+              fontWeight: 800,
+              display: 'grid',
+              placeItems: 'center',
+            }}
+          >
+            {unread}
+          </span>
+        ) : (
+          <span className="fab-dot" />
+        ))}
       </button>
 
       <ConfirmDialog

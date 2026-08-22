@@ -1,5 +1,8 @@
 // ─────────────────────────────────────────────────────────────
-// LifeOS – Contexte global (état, persistance, thème, toasts)
+// LifeOS – Contexte applicatif (v2)
+// Compose les stores Zustand persistés et expose une API unifiée
+// (useApp) aux composants. Gère : thème, toasts, verrouillage,
+// formatage global (masquage, séparateur décimal, 12h/24h).
 // ─────────────────────────────────────────────────────────────
 
 import React, {
@@ -8,7 +11,6 @@ import React, {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 import type {
@@ -20,24 +22,32 @@ import type {
   Investment,
   JournalEntry,
   LayoutItem,
+  Milestone,
   Note,
   Profile,
   SavingsGoal,
   Settings,
+  Subtask,
   Task,
+  TaskStatus,
   Transaction,
   WidgetId,
 } from '../types';
-import { initialState } from '../data/initialData';
+import {
+  useChatbotStore,
+  useDashboardStore,
+  useFinanceStore,
+  usePersonalStore,
+  useSettingsStore,
+  useUIStore,
+} from '../store';
 import { makeT, type TFunc } from '../i18n/translations';
 import {
   ACCENTS,
-  loadState,
   resolveTheme,
-  saveState,
   systemPrefersDark,
-  uid,
 } from '../utils/helpers';
+import { setFormatConfig } from '../utils/formatConfig';
 
 export interface Toast {
   id: string;
@@ -69,24 +79,34 @@ interface AppContextValue {
   isHidden: (id: WidgetId) => boolean;
   showAllWidgets: () => void;
   // Tâches
-  addTask: (t: Omit<Task, 'id' | 'createdAt' | 'done'> & { done?: boolean }) => void;
+  addTask: (t: Omit<Task, 'id' | 'createdAt' | 'done' | 'status' | 'tags' | 'subtasks'> & Partial<Task>) => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
   deleteTask: (id: string) => void;
+  setTaskStatus: (id: string, status: TaskStatus) => void;
+  reorderTask: (from: number, to: number) => void;
+  reorderTasks: (ordered: Task[]) => void;
+  addSubtask: (taskId: string, title: string) => void;
+  toggleSubtask: (taskId: string, subtaskId: string) => void;
+  deleteSubtask: (taskId: string, subtaskId: string) => void;
   // Notes
   addNote: (n?: Partial<Note>) => string;
   updateNote: (id: string, patch: Partial<Note>) => void;
   deleteNote: (id: string) => void;
   // Habitudes
-  addHabit: (h: Omit<Habit, 'id' | 'days'>) => void;
+  addHabit: (h: Omit<Habit, 'id' | 'days' | 'missed'>) => void;
   deleteHabit: (id: string) => void;
   toggleHabitDay: (id: string, date: string) => void;
+  cycleHabitDay: (id: string, date: string) => void;
   // Journal
   upsertJournal: (entry: Omit<JournalEntry, 'id'> & { id?: string }) => void;
   deleteJournal: (id: string) => void;
   // Objectifs
-  addGoal: (g: Omit<Goal, 'id'>) => void;
+  addGoal: (g: Omit<Goal, 'id' | 'milestones'>) => void;
   updateGoal: (id: string, patch: Partial<Goal>) => void;
   deleteGoal: (id: string) => void;
+  addMilestone: (goalId: string, label: string) => void;
+  toggleMilestone: (goalId: string, milestoneId: string) => void;
+  deleteMilestone: (goalId: string, milestoneId: string) => void;
   // Événements
   addEvent: (e: Omit<CalendarEvent, 'id'>) => void;
   deleteEvent: (id: string) => void;
@@ -107,6 +127,10 @@ interface AppContextValue {
   // Chat
   pushChat: (role: 'user' | 'bot', text: string) => void;
   clearChat: () => void;
+  setChatUnread: (count: number) => void;
+  chatUnread: number;
+  coachLastAt: string | null;
+  setCoachLastAt: (iso: string) => void;
   // Données
   exportAll: () => void;
   importAll: (data: Partial<AppState>) => void;
@@ -115,262 +139,150 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+let toastSeq = 0;
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AppState>(() => loadState(initialState));
+  // ── Stores ──
+  const settings = useSettingsStore((s) => s.settings);
+  const profile = useSettingsStore((s) => s.profile);
+  const updateSettings = useSettingsStore((s) => s.updateSettings);
+  const updateProfile = useSettingsStore((s) => s.updateProfile);
+
+  const layout = useDashboardStore((s) => s.layout);
+  const hidden = useDashboardStore((s) => s.hidden);
+  const setLayout = useDashboardStore((s) => s.setLayout);
+  const resetLayout = useDashboardStore((s) => s.resetLayout);
+  const toggleWidget = useDashboardStore((s) => s.toggleWidget);
+  const showAllWidgets = useDashboardStore((s) => s.showAllWidgets);
+
+  const transactions = useFinanceStore((s) => s.transactions);
+  const budget = useFinanceStore((s) => s.budget);
+  const savingsGoals = useFinanceStore((s) => s.savingsGoals);
+  const investments = useFinanceStore((s) => s.investments);
+
+  const tasks = usePersonalStore((s) => s.tasks);
+  const notes = usePersonalStore((s) => s.notes);
+  const habits = usePersonalStore((s) => s.habits);
+  const journal = usePersonalStore((s) => s.journal);
+  const goals = usePersonalStore((s) => s.goals);
+  const events = usePersonalStore((s) => s.events);
+
+  const messages = useChatbotStore((s) => s.messages);
+  const coachLastAt = useChatbotStore((s) => s.coachLastAt);
+  const chatUnread = useChatbotStore((s) => s.unreadCount);
+
+  const premiumOpen = useUIStore((s) => s.premiumOpen);
+  const setPremiumOpen = useUIStore((s) => s.setPremiumOpen);
+
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [premiumOpen, setPremiumOpen] = useState(false);
-  const [locked, setLocked] = useState<boolean>(() => loadState(initialState).settings.lockEnabled ?? false);
-  const saveTimer = useRef<number | null>(null);
+  const [, forceRender] = useState(0);
+  const [locked, setLocked] = useState<boolean>(() => {
+    // Verrouillage au démarrage si activé dans les paramètres persistés
+    try {
+      const raw = localStorage.getItem('lifeos:v2:settings');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.state?.settings?.lockEnabled) return true;
+      }
+    } catch {
+      /* ignore */
+    }
+    return false;
+  });
+  const resolvedTheme = resolveTheme(settings.theme);
 
-  // Persistance (debounced)
+  // ── État combiné (compatible avec l'ancien AppState) ──
+  const state: AppState = useMemo(
+    () => ({
+      version: 2,
+      settings,
+      profile,
+      tasks,
+      notes,
+      habits,
+      journal,
+      goals,
+      events,
+      transactions,
+      budget,
+      savingsGoals,
+      investments,
+      chatHistory: messages,
+      layout,
+      hidden,
+    }),
+    [settings, profile, tasks, notes, habits, journal, goals, events, transactions, budget, savingsGoals, investments, messages, layout, hidden],
+  );
+
+  const t = useMemo(() => makeT(settings.lang), [settings.lang]);
+
+  // ── Formatage global ──
   useEffect(() => {
-    if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(() => saveState(state), 250);
-    return () => {
-      if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    };
-  }, [state]);
+    setFormatConfig({
+      hideAmounts: settings.hideAmounts,
+      decimalSep: settings.decimalSep,
+      hour12: settings.hourFormat === '12',
+    });
+  }, [settings.hideAmounts, settings.decimalSep, settings.hourFormat]);
 
-  const resolvedTheme = resolveTheme(state.settings.theme);
-
-  // Application du thème / accent / densité au document
+  // ── Thème / accent / densité ──
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', resolvedTheme);
-    root.setAttribute('data-accent', state.settings.accent);
-    root.setAttribute('data-density', state.settings.density);
-    const accent = ACCENTS[state.settings.accent]?.color ?? '#6c757d';
-    const accentSoft = ACCENTS[state.settings.accent]?.soft ?? 'rgba(108,117,125,.14)';
+    root.setAttribute('data-accent', settings.accent);
+    root.setAttribute('data-density', settings.density);
+    root.setAttribute('data-anim-page', String(settings.animations.page));
+    root.setAttribute('data-anim-cards', String(settings.animations.cards));
+    root.setAttribute('data-anim-smoke', String(settings.animations.smoke));
+    const accent = ACCENTS[settings.accent]?.color ?? '#6c757d';
+    const accentSoft = ACCENTS[settings.accent]?.soft ?? 'rgba(108,117,125,.14)';
     root.style.setProperty('--accent', accent);
     root.style.setProperty('--accent-soft', accentSoft);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', resolvedTheme === 'dark' ? '#14171c' : '#f8f9fa');
-  }, [resolvedTheme, state.settings.accent, state.settings.density]);
+    if (meta) meta.setAttribute('content', resolvedTheme === 'dark' ? '#0d0d0d' : '#f8f9fa');
+  }, [resolvedTheme, settings.accent, settings.density, settings.animations]);
 
-  // Écoute du thème système en mode "auto"
+  // ── Thème auto : écoute du système ──
   useEffect(() => {
-    if (state.settings.theme !== 'auto') return;
+    if (settings.theme !== 'auto') return;
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = () => setState((s) => ({ ...s })); // re-render pour recalculer resolvedTheme
+    const handler = () => forceRender((n) => n + 1);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
-  }, [state.settings.theme]);
+  }, [settings.theme]);
 
-  const t = useMemo(() => makeT(state.settings.lang), [state.settings.lang]);
-
-  // ── Toasts ─────────────────────────────────────────────────
+  // ── Toasts ──
   const dismissToast = useCallback((id: string) => {
     setToasts((ts) => ts.filter((x) => x.id !== id));
   }, []);
 
   const showToast = useCallback(
     (text: string, type: Toast['type'] = 'info') => {
-      const id = uid();
+      const id = `t${++toastSeq}`;
       setToasts((ts) => [...ts.slice(-3), { id, text, type }]);
       window.setTimeout(() => dismissToast(id), 3800);
     },
     [dismissToast],
   );
 
-  // ── Verrouillage ───────────────────────────────────────────
+  // ── Verrouillage ──
   const unlock = useCallback(
     (pin: string) => {
-      const expected = state.settings.pin || '1234';
+      const expected = settings.pin || '1234';
       if (pin === expected) {
         setLocked(false);
         return true;
       }
       return false;
     },
-    [state.settings.pin],
+    [settings.pin],
   );
 
   const lockNow = useCallback(() => {
-    if (state.settings.lockEnabled) setLocked(true);
-  }, [state.settings.lockEnabled]);
+    if (settings.lockEnabled) setLocked(true);
+  }, [settings.lockEnabled]);
 
-  // ── Helpers génériques ─────────────────────────────────────
-  const patch = useCallback((p: Partial<AppState>) => setState((s) => ({ ...s, ...p })), []);
-
-  function listUpdate<K extends keyof AppState>(key: K, fn: (items: AppState[K]) => AppState[K]) {
-    setState((s) => ({ ...s, [key]: fn(s[key]) }));
-  }
-
-  function listAdd<K extends keyof AppState>(key: K, item: AppState[K] extends Array<infer T> ? T : never) {
-    listUpdate(key, (items) => [...(items as unknown[]), item] as AppState[K]);
-  }
-
-  function listRemove<K extends keyof AppState>(key: K, id: string) {
-    listUpdate(key, (items) =>
-      (items as Array<{ id: string }>).filter((x) => x.id !== id) as AppState[K],
-    );
-  }
-
-  // ── Settings / Profile ─────────────────────────────────────
-  const updateSettings = useCallback((p: Partial<Settings>) => {
-    setState((s) => ({ ...s, settings: { ...s.settings, ...p } }));
-  }, []);
-
-  const updateProfile = useCallback((p: Partial<Profile>) => {
-    setState((s) => ({ ...s, profile: { ...s.profile, ...p } }));
-  }, []);
-
-  // ── Layout ─────────────────────────────────────────────────
-  const setLayout = useCallback((layout: LayoutItem[]) => setState((s) => ({ ...s, layout })), []);
-  const resetLayout = useCallback(() => {
-    setState((s) => ({ ...s, layout: initialState.layout, hidden: {} }));
-    showToast(t('toast.layoutReset'), 'success');
-  }, [t, showToast]);
-
-  const isHidden = useCallback((id: WidgetId) => Boolean(state.hidden[id]), [state.hidden]);
-
-  const toggleWidget = useCallback((id: WidgetId) => {
-    setState((s) => {
-      const hidden = { ...s.hidden };
-      if (hidden[id]) delete hidden[id];
-      else hidden[id] = true;
-      return { ...s, hidden };
-    });
-  }, []);
-
-  const showAllWidgets = useCallback(() => setState((s) => ({ ...s, hidden: {} })), []);
-
-  // ── Tâches ─────────────────────────────────────────────────
-  const addTask: AppContextValue['addTask'] = useCallback((task) => {
-    listAdd('tasks', {
-      ...task,
-      id: uid(),
-      done: task.done ?? false,
-      createdAt: new Date().toISOString(),
-    });
-  }, []);
-
-  const updateTask = useCallback((id: string, p: Partial<Task>) => {
-    listUpdate('tasks', (items) => (items as Task[]).map((x) => (x.id === id ? { ...x, ...p } : x)));
-  }, []);
-
-  const deleteTask = useCallback((id: string) => listRemove('tasks', id), []);
-
-  // ── Notes ──────────────────────────────────────────────────
-  const addNote: AppContextValue['addNote'] = useCallback((n) => {
-    const id = uid();
-    listAdd('notes', {
-      id,
-      title: n?.title ?? '',
-      content: n?.content ?? '',
-      updatedAt: new Date().toISOString().slice(0, 10),
-    });
-    return id;
-  }, []);
-
-  const updateNote = useCallback((id: string, p: Partial<Note>) => {
-    listUpdate('notes', (items) =>
-      (items as Note[]).map((x) =>
-        x.id === id ? { ...x, ...p, updatedAt: new Date().toISOString().slice(0, 10) } : x,
-      ),
-    );
-  }, []);
-
-  const deleteNote = useCallback((id: string) => listRemove('notes', id), []);
-
-  // ── Habitudes ──────────────────────────────────────────────
-  const addHabit = useCallback((h: Omit<Habit, 'id' | 'days'>) => {
-    listAdd('habits', { ...h, id: uid(), days: {} });
-  }, []);
-
-  const deleteHabit = useCallback((id: string) => listRemove('habits', id), []);
-
-  const toggleHabitDay = useCallback((id: string, date: string) => {
-    listUpdate('habits', (items) =>
-      (items as Habit[]).map((h) => {
-        if (h.id !== id) return h;
-        const days = { ...h.days };
-        if (days[date]) delete days[date];
-        else days[date] = true;
-        return { ...h, days };
-      }),
-    );
-  }, []);
-
-  // ── Journal ────────────────────────────────────────────────
-  const upsertJournal = useCallback((entry: Omit<JournalEntry, 'id'> & { id?: string }) => {
-    if (entry.id) {
-      listUpdate('journal', (items) =>
-        (items as JournalEntry[]).map((x) => (x.id === entry.id ? { ...x, ...entry } : x)),
-      );
-    } else {
-      listAdd('journal', { ...entry, id: uid() });
-    }
-  }, []);
-
-  const deleteJournal = useCallback((id: string) => listRemove('journal', id), []);
-
-  // ── Objectifs ──────────────────────────────────────────────
-  const addGoal = useCallback((g: Omit<Goal, 'id'>) => {
-    listAdd('goals', { ...g, id: uid() });
-  }, []);
-
-  const updateGoal = useCallback((id: string, p: Partial<Goal>) => {
-    listUpdate('goals', (items) => (items as Goal[]).map((x) => (x.id === id ? { ...x, ...p } : x)));
-  }, []);
-
-  const deleteGoal = useCallback((id: string) => listRemove('goals', id), []);
-
-  // ── Événements ─────────────────────────────────────────────
-  const addEvent = useCallback((e: Omit<CalendarEvent, 'id'>) => {
-    listAdd('events', { ...e, id: uid() });
-  }, []);
-
-  const deleteEvent = useCallback((id: string) => listRemove('events', id), []);
-
-  // ── Transactions ───────────────────────────────────────────
-  const addTx = useCallback((tx: Omit<Transaction, 'id'>) => {
-    listAdd('transactions', { ...tx, id: uid() });
-  }, []);
-
-  const deleteTx = useCallback((id: string) => listRemove('transactions', id), []);
-
-  // ── Budget ─────────────────────────────────────────────────
-  const addBudgetCat = useCallback((c: Omit<BudgetCategory, 'id'>) => {
-    listAdd('budget', { ...c, id: uid() });
-  }, []);
-
-  const updateBudgetCat = useCallback((id: string, p: Partial<BudgetCategory>) => {
-    listUpdate('budget', (items) => (items as BudgetCategory[]).map((x) => (x.id === id ? { ...x, ...p } : x)));
-  }, []);
-
-  const deleteBudgetCat = useCallback((id: string) => listRemove('budget', id), []);
-
-  // ── Épargne ────────────────────────────────────────────────
-  const addSavingsGoal = useCallback((g: Omit<SavingsGoal, 'id'>) => {
-    listAdd('savingsGoals', { ...g, id: uid() });
-  }, []);
-
-  const contributeSavings = useCallback((id: string, amount: number) => {
-    listUpdate('savingsGoals', (items) =>
-      (items as SavingsGoal[]).map((x) =>
-        x.id === id ? { ...x, saved: Math.max(0, x.saved + amount) } : x,
-      ),
-    );
-  }, []);
-
-  const deleteSavingsGoal = useCallback((id: string) => listRemove('savingsGoals', id), []);
-
-  // ── Investissements ────────────────────────────────────────
-  const addInvestment = useCallback((i: Omit<Investment, 'id'>) => {
-    listAdd('investments', { ...i, id: uid() });
-  }, []);
-
-  const deleteInvestment = useCallback((id: string) => listRemove('investments', id), []);
-
-  // ── Chat ───────────────────────────────────────────────────
-  const pushChat = useCallback((role: 'user' | 'bot', text: string) => {
-    listAdd('chatHistory', { id: uid(), role, text, time: new Date().toISOString() });
-  }, []);
-
-  const clearChat = useCallback(() => patch({ chatHistory: [] }), [patch]);
-
-  // ── Données ────────────────────────────────────────────────
+  // ── Données ──
   const exportAll = useCallback(() => {
     import('../utils/helpers').then(({ downloadJSON }) => {
       downloadJSON(`lifeos-backup-${new Date().toISOString().slice(0, 10)}.json`, state);
@@ -380,27 +292,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const importAll = useCallback(
     (data: Partial<AppState>) => {
-      setState((s) => ({
-        ...s,
-        ...data,
-        settings: { ...s.settings, ...(data.settings ?? {}) },
-        version: 1,
-      }));
+      if (data.settings) updateSettings(data.settings);
+      if (data.profile) updateProfile(data.profile);
+      if (data.layout) setLayout(data.layout);
+      if (data.hidden) useDashboardStore.setState({ hidden: data.hidden });
+      if (data.transactions) useFinanceStore.setState({ transactions: data.transactions });
+      if (data.budget) useFinanceStore.setState({ budget: data.budget });
+      if (data.savingsGoals) useFinanceStore.setState({ savingsGoals: data.savingsGoals });
+      if (data.investments) useFinanceStore.setState({ investments: data.investments });
+      if (data.tasks) usePersonalStore.setState({ tasks: data.tasks });
+      if (data.notes) usePersonalStore.setState({ notes: data.notes });
+      if (data.habits) usePersonalStore.setState({ habits: data.habits });
+      if (data.journal) usePersonalStore.setState({ journal: data.journal });
+      if (data.goals) usePersonalStore.setState({ goals: data.goals });
+      if (data.events) usePersonalStore.setState({ events: data.events });
+      if (data.chatHistory) useChatbotStore.setState({ messages: data.chatHistory });
       showToast(t('toast.imported'), 'success');
     },
-    [t, showToast],
+    [t, showToast, updateSettings, updateProfile, setLayout],
   );
 
   const resetAll = useCallback(() => {
-    setState({ ...initialState, layout: initialState.layout.map((l) => ({ ...l })) });
-    setLocked(initialState.settings.lockEnabled);
+    useSettingsStore.getState().resetSettings();
+    useDashboardStore.getState().resetLayout();
+    useFinanceStore.getState().resetFinance();
+    usePersonalStore.getState().resetPersonal();
+    useChatbotStore.getState().resetChat();
+    setLocked(false);
     showToast(t('toast.reset'), 'success');
   }, [t, showToast]);
 
   const value: AppContextValue = {
     state,
     t,
-    lang: state.settings.lang,
+    lang: settings.lang,
     resolvedTheme,
     toasts,
     showToast,
@@ -415,37 +340,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateProfile,
     setLayout,
     resetLayout,
-    toggleWidget,
-    isHidden,
+    toggleWidget: (id) => toggleWidget(id),
+    isHidden: (id) => Boolean(hidden[id]),
     showAllWidgets,
-    addTask,
-    updateTask,
-    deleteTask,
-    addNote,
-    updateNote,
-    deleteNote,
-    addHabit,
-    deleteHabit,
-    toggleHabitDay,
-    upsertJournal,
-    deleteJournal,
-    addGoal,
-    updateGoal,
-    deleteGoal,
-    addEvent,
-    deleteEvent,
-    addTx,
-    deleteTx,
-    addBudgetCat,
-    updateBudgetCat,
-    deleteBudgetCat,
-    addSavingsGoal,
-    contributeSavings,
-    deleteSavingsGoal,
-    addInvestment,
-    deleteInvestment,
-    pushChat,
-    clearChat,
+    addTask: usePersonalStore.getState().addTask,
+    updateTask: usePersonalStore.getState().updateTask,
+    deleteTask: usePersonalStore.getState().deleteTask,
+    setTaskStatus: usePersonalStore.getState().setTaskStatus,
+    reorderTask: usePersonalStore.getState().reorderTask,
+    reorderTasks: usePersonalStore.getState().reorderTasks,
+    addSubtask: usePersonalStore.getState().addSubtask,
+    toggleSubtask: usePersonalStore.getState().toggleSubtask,
+    deleteSubtask: usePersonalStore.getState().deleteSubtask,
+    addNote: usePersonalStore.getState().addNote,
+    updateNote: usePersonalStore.getState().updateNote,
+    deleteNote: usePersonalStore.getState().deleteNote,
+    addHabit: usePersonalStore.getState().addHabit,
+    deleteHabit: usePersonalStore.getState().deleteHabit,
+    toggleHabitDay: usePersonalStore.getState().toggleHabitDay,
+    cycleHabitDay: usePersonalStore.getState().cycleHabitDay,
+    upsertJournal: usePersonalStore.getState().upsertJournal,
+    deleteJournal: usePersonalStore.getState().deleteJournal,
+    addGoal: usePersonalStore.getState().addGoal,
+    updateGoal: usePersonalStore.getState().updateGoal,
+    deleteGoal: usePersonalStore.getState().deleteGoal,
+    addMilestone: usePersonalStore.getState().addMilestone,
+    toggleMilestone: usePersonalStore.getState().toggleMilestone,
+    deleteMilestone: usePersonalStore.getState().deleteMilestone,
+    addEvent: usePersonalStore.getState().addEvent,
+    deleteEvent: usePersonalStore.getState().deleteEvent,
+    addTx: useFinanceStore.getState().addTx,
+    deleteTx: useFinanceStore.getState().deleteTx,
+    addBudgetCat: useFinanceStore.getState().addBudgetCat,
+    updateBudgetCat: useFinanceStore.getState().updateBudgetCat,
+    deleteBudgetCat: useFinanceStore.getState().deleteBudgetCat,
+    addSavingsGoal: useFinanceStore.getState().addSavingsGoal,
+    contributeSavings: useFinanceStore.getState().contributeSavings,
+    deleteSavingsGoal: useFinanceStore.getState().deleteSavingsGoal,
+    addInvestment: useFinanceStore.getState().addInvestment,
+    deleteInvestment: useFinanceStore.getState().deleteInvestment,
+    pushChat: useChatbotStore.getState().pushChat,
+    clearChat: useChatbotStore.getState().clearChat,
+    setChatUnread: useChatbotStore.getState().setUnread,
+    chatUnread,
+    coachLastAt,
+    setCoachLastAt: useChatbotStore.getState().setCoachLastAt,
     exportAll,
     importAll,
     resetAll,

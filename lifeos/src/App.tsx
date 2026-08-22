@@ -1,52 +1,25 @@
 // ─────────────────────────────────────────────────────────────
-// LifeOS – Application principale
-// Grille drag & drop (react-grid-layout), raccourcis clavier,
-// skeleton de démarrage, écran de verrouillage, toasts.
+// LifeOS – Application principale (v2)
+// Routage par pages (hash), raccourcis clavier (Ctrl+),
+// skeleton de démarrage, écran de verrouillage, toasts,
+// overlays globaux (chatbot, premium, fumée).
 // ─────────────────────────────────────────────────────────────
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Responsive, WidthProvider } from 'react-grid-layout';
-import 'react-grid-layout/css/styles.css';
-import 'react-resizable/css/styles.css';
+import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, CheckCircle2, Info, XCircle, Lock, Delete } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { Chatbot } from './components/chatbot/Chatbot';
-import { SettingsPanel } from './components/settings/SettingsPanel';
 import { PremiumModal } from './components/premium';
-import { useMediaQuery } from './components/ui';
-import { ClockWidget, WeatherWidget, CalendarWidget, PomodoroWidget } from './components/modules/personal';
-import { TasksWidget, NotesWidget, HabitsWidget, JournalWidget, GoalsWidget } from './components/modules/planner';
-import { FinanceWidget, BudgetWidget } from './components/modules/finance';
-import { SavingsWidget, InvestmentsWidget, LoanWidget } from './components/modules/finance2';
-import { PremiumWidget } from './components/premium';
-import type { LayoutItem, WidgetId } from './types';
-
-const ResponsiveGrid = WidthProvider(Responsive);
-
-/* ── Rendering des widgets ── */
-function renderWidget(id: WidgetId) {
-  switch (id) {
-    case 'clock': return <ClockWidget id={id} />;
-    case 'weather': return <WeatherWidget id={id} />;
-    case 'calendar': return <CalendarWidget id={id} />;
-    case 'tasks': return <TasksWidget id={id} />;
-    case 'notes': return <NotesWidget id={id} />;
-    case 'habits': return <HabitsWidget id={id} />;
-    case 'journal': return <JournalWidget id={id} />;
-    case 'goals': return <GoalsWidget id={id} />;
-    case 'pomodoro': return <PomodoroWidget id={id} />;
-    case 'finance': return <FinanceWidget id={id} />;
-    case 'budget': return <BudgetWidget id={id} />;
-    case 'savings': return <SavingsWidget id={id} />;
-    case 'investments': return <InvestmentsWidget id={id} />;
-    case 'loan': return <LoanWidget id={id} />;
-    case 'premium': return <PremiumWidget id={id} />;
-    default: return null;
-  }
-}
+import { SettingsContent } from './components/settings/SettingsPanel';
+import { DashboardPage } from './components/pages/DashboardPage';
+import { FinancePage } from './components/pages/FinancePage';
+import { PersonalPage } from './components/pages/PersonalPage';
+import { PremiumPage } from './components/pages/PremiumPage';
+import { useUIStore } from './store';
+import type { View } from './types';
 
 /* ── Toasts ── */
 function Toasts() {
@@ -95,9 +68,8 @@ function LockScreen() {
     setPin(next);
     setError(false);
     if (next.length === 4) {
-      if (unlock(next)) {
-        setPin('');
-      } else {
+      if (unlock(next)) setPin('');
+      else {
         setError(true);
         setPin('');
       }
@@ -157,14 +129,15 @@ function BootSkeleton() {
   );
 }
 
-/* ── Dashboard (grille) ── */
-function Dashboard() {
-  const { state, setLayout, isHidden, t, updateSettings, lockNow } = useApp();
-  const [settingsOpen, setSettingsOpen] = useState(false);
+/* ── Shell applicatif ── */
+function Shell() {
+  const { state, t, updateSettings, lockNow } = useApp();
+  const view = useUIStore((s) => s.view);
+  const setView = useUIStore((s) => s.setView);
+  const setFinanceTab = useUIStore((s) => s.setFinanceTab);
+  const setPersonalTab = useUIStore((s) => s.setPersonalTab);
   const [menuOpen, setMenuOpen] = useState(false);
   const [booted, setBooted] = useState(false);
-  // RGL uniquement ≥ 1024px ; en dessous, cartes empilées (tablette & mobile)
-  const isStacked = useMediaQuery('(max-width: 1023px)');
 
   // Skeleton de démarrage
   useEffect(() => {
@@ -172,148 +145,128 @@ function Dashboard() {
     return () => window.clearTimeout(iv);
   }, []);
 
-  // Raccourcis clavier globaux
+  // Hash routing : #/finances, #/personal, #/premium, #/settings
+  useEffect(() => {
+    const parse = () => {
+      const h = window.location.hash.replace(/^#\/?/, '').split('?')[0];
+      const valid: View[] = ['dashboard', 'finances', 'personal', 'premium', 'settings'];
+      if (valid.includes(h as View) && h !== view) setView(h as View);
+    };
+    parse();
+    window.addEventListener('hashchange', parse);
+    return () => window.removeEventListener('hashchange', parse);
+  }, [view, setView]);
+
+  // Raccourcis clavier globaux (Ctrl+)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (e.key === '/') {
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      const mod = e.ctrlKey || e.metaKey;
+
+      if (mod && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent('lifeos:focus-search'));
-      } else if (e.key.toLowerCase() === 'n' && !e.shiftKey) {
-        window.dispatchEvent(new CustomEvent('lifeos:focus-tasks'));
-      } else if (e.key.toLowerCase() === 'n' && e.shiftKey) {
+      } else if (mod && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        setView('personal');
+        setPersonalTab('tasks');
+        window.setTimeout(() => window.dispatchEvent(new CustomEvent('lifeos:focus-tasks')), 450);
+      } else if (mod && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
         window.dispatchEvent(new CustomEvent('lifeos:focus-note'));
-      } else if (e.key.toLowerCase() === 't') {
+      } else if (mod && e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        setView('finances');
+        setFinanceTab('transactions');
+      } else if (mod && e.key.toLowerCase() === 'l' && e.shiftKey) {
+        e.preventDefault();
         updateSettings({ theme: state.settings.theme === 'light' ? 'dark' : state.settings.theme === 'dark' ? 'auto' : 'light' });
-      } else if (e.key.toLowerCase() === 'p') {
+      } else if (mod && e.key === ',') {
+        e.preventDefault();
+        setView('settings');
+      } else if (mod && e.key === '/') {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('lifeos:chat-toggle'));
+      } else if (mod && e.key === '?') {
+        e.preventDefault();
+        setView('settings');
+      } else if (!mod && !typing && e.key.toLowerCase() === 'p') {
         window.dispatchEvent(new CustomEvent('lifeos:pomo-toggle'));
-      } else if (e.key === '?') {
-        setSettingsOpen(true);
-      } else if (e.key.toLowerCase() === 'l') {
+      } else if (!mod && !typing && e.key.toLowerCase() === 'l') {
         if (state.settings.lockEnabled) lockNow();
-        else { updateSettings({ lockEnabled: true }); lockNow(); }
+        else {
+          updateSettings({ lockEnabled: true });
+          lockNow();
+        }
+      } else if (!mod && !typing && e.key === '/') {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('lifeos:focus-search'));
+      } else if (!mod && !typing && e.key.toLowerCase() === 'n') {
+        window.dispatchEvent(new CustomEvent('lifeos:focus-tasks'));
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [state.settings.theme, state.settings.lockEnabled, updateSettings, lockNow]);
+  }, [state.settings.theme, state.settings.lockEnabled, updateSettings, lockNow, setView, setFinanceTab, setPersonalTab]);
 
-  // Ouvrir les paramètres depuis la sidebar
+  // Ouvrir les paramètres depuis la sidebar (compat)
   useEffect(() => {
-    const handler = () => setSettingsOpen(true);
+    const handler = () => setView('settings');
     window.addEventListener('lifeos:open-settings', handler);
     return () => window.removeEventListener('lifeos:open-settings', handler);
-  }, []);
+  }, [setView]);
 
-  const visibleWidgets = useMemo(
-    () => (Object.keys(renderWidgetMap()) as WidgetId[]).filter((id) => !isHidden(id)),
-    [state.hidden, isHidden],
-  );
-
-  const layouts = useMemo(() => {
-    const items = state.layout.filter((l) => visibleWidgets.includes(l.i as WidgetId));
-    return { lg: items, md: items, sm: items, xs: items, xxs: items };
-  }, [state.layout, visibleWidgets]);
-
-  const rowHeight = state.settings.density === 'compact' ? 52 : state.settings.density === 'spacious' ? 68 : 58;
-  const margin: [number, number] = state.settings.density === 'compact' ? [12, 12] : state.settings.density === 'spacious' ? [22, 22] : [16, 16];
+  const pages: Record<View, React.ReactNode> = {
+    dashboard: <DashboardPage />,
+    finances: <FinancePage />,
+    personal: <PersonalPage />,
+    premium: <PremiumPage />,
+    settings: (
+      <div className="page-wrap">
+        <div className="page-head">
+          <h1>{t('set.title')}</h1>
+        </div>
+        <div className="widget-card">
+          <SettingsContent />
+        </div>
+      </div>
+    ),
+  };
 
   return (
     <div className="app-shell">
-      <div className="smoke-overlay" aria-hidden="true" />
+      {state.settings.animations.smoke && <div className="smoke-overlay" aria-hidden="true" />}
       <div className="app-bg-dots" aria-hidden="true" />
 
       <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
       <Header onOpenMenu={() => setMenuOpen(true)} />
 
       <main className="app-main">
-        <div className="app-content" id="dashboard-grid">
+        <div className="app-content">
           {!booted ? (
             <BootSkeleton />
-          ) : isStacked ? (
-            /* ── Tablette & mobile : cartes empilées ── */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <AnimatePresence>
-                {visibleWidgets.map((id) => (
-                  <motion.div
-                    key={id}
-                    id={`widget-${id}`}
-                    initial={{ opacity: 0, y: 24 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, amount: 0.08 }}
-                    transition={{ type: 'spring', stiffness: 240, damping: 26 }}
-                  >
-                    {renderWidget(id)}
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
           ) : (
-            /* ── Desktop : grille drag & drop ── */
-            <ResponsiveGrid
-              className="layout"
-              layouts={layouts}
-              breakpoints={{ lg: 1024 }}
-              cols={{ lg: 12 }}
-              rowHeight={rowHeight}
-              margin={margin}
-              containerPadding={[0, 0]}
-              draggableHandle=".wh-card-titlebar"
-              compactType="vertical"
-              onLayoutChange={(_l, allLayouts) => {
-                if (allLayouts.lg && allLayouts.lg.length > 0) {
-                  setLayout(allLayouts.lg as LayoutItem[]);
-                }
-              }}
-            >
-              {visibleWidgets.map((id) => (
-                <div key={id} id={`widget-${id}`} style={{ animation: `card-in .55s cubic-bezier(.22,1,.36,1) both`, animationDelay: `${Math.min(visibleWidgets.indexOf(id), 12) * 70}ms` }}>
-                  <div className="widget-drag-hint">{t('misc.tip')} ↕</div>
-                  {renderWidget(id)}
-                </div>
-              ))}
-            </ResponsiveGrid>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={view}
+                initial={state.settings.animations.page ? { opacity: 0, y: 18 } : false}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {pages[view]}
+              </motion.div>
+            </AnimatePresence>
           )}
         </div>
       </main>
 
       <Chatbot />
       <Toasts />
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <PremiumModal />
-
-      <style>{`
-        .widget-pulse { animation: widget-pulse 1.5s ease; }
-        @keyframes widget-pulse {
-          0%, 100% { box-shadow: var(--shadow-sm); }
-          30% { box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-lg); }
-        }
-        .layout .react-grid-item > div { height: 100%; }
-      `}</style>
     </div>
   );
-}
-
-/* ── Registre des widgets (ordre d'affichage) ── */
-function renderWidgetMap(): Record<WidgetId, boolean> {
-  return {
-    clock: true,
-    weather: true,
-    finance: true,
-    tasks: true,
-    calendar: true,
-    budget: true,
-    pomodoro: true,
-    habits: true,
-    goals: true,
-    notes: true,
-    journal: true,
-    savings: true,
-    investments: true,
-    loan: true,
-    premium: true,
-  };
 }
 
 export default function App() {
@@ -326,9 +279,5 @@ export default function App() {
 
 function Root() {
   const { locked } = useApp();
-  return (
-    <AnimatePresence mode="wait">
-      {locked ? <LockScreen key="lock" /> : <Dashboard key="app" />}
-    </AnimatePresence>
-  );
+  return <AnimatePresence mode="wait">{locked ? <LockScreen key="lock" /> : <Shell key="app" />}</AnimatePresence>;
 }

@@ -103,13 +103,89 @@ const budget: BudgetCategory[] = [
 
 // ── Tâches ───────────────────────────────────────────────────
 const tasks: Task[] = [
-  { id: 'k1', title: 'Réviser le portfolio en ligne', done: false, priority: 'high', due: dayIn(1), createdAt: dayIn(-1) },
-  { id: 'k2', title: 'Payer la facture Internet', done: false, priority: 'medium', due: dayIn(3), createdAt: dayIn(-2) },
-  { id: 'k3', title: 'Session de sport (1h)', done: false, priority: 'medium', due: dayIn(0), createdAt: dayIn(-1) },
-  { id: 'k4', title: 'Appeler le client Y pour le devis', done: false, priority: 'high', due: dayIn(0), createdAt: dayIn(-3) },
-  { id: 'k5', title: 'Lire 20 pages de "Deep Work"', done: true, priority: 'low', due: dayIn(-1), createdAt: dayIn(-2) },
-  { id: 'k6', title: 'Préparer le budget du mois prochain', done: false, priority: 'medium', due: dayIn(5), createdAt: dayIn(-1) },
-  { id: 'k7', title: 'Réserver le vol pour les vacances', done: false, priority: 'low', due: dayIn(9), createdAt: dayIn(-4) },
+  {
+    id: 'k1',
+    title: 'Réviser le portfolio en ligne',
+    done: false,
+    status: 'todo',
+    priority: 'high',
+    due: dayIn(1),
+    tags: ['freelance'],
+    subtasks: [
+      { id: 'k1s1', title: 'Refaire la page "Projets"', done: true },
+      { id: 'k1s2', title: 'Mettre à jour le CV téléchargeable', done: false },
+    ],
+    createdAt: dayIn(-1),
+  },
+  {
+    id: 'k2',
+    title: 'Payer la facture Internet',
+    done: false,
+    status: 'todo',
+    priority: 'medium',
+    due: dayIn(3),
+    tags: ['maison'],
+    subtasks: [],
+    createdAt: dayIn(-2),
+  },
+  {
+    id: 'k3',
+    title: 'Session de sport (1h)',
+    done: false,
+    status: 'doing',
+    priority: 'medium',
+    due: dayIn(0),
+    tags: ['santé'],
+    subtasks: [],
+    createdAt: dayIn(-1),
+  },
+  {
+    id: 'k4',
+    title: 'Appeler le client Y pour le devis',
+    done: false,
+    status: 'todo',
+    priority: 'urgent',
+    due: dayIn(0),
+    tags: ['freelance'],
+    subtasks: [
+      { id: 'k4s1', title: 'Relire le cahier des charges', done: true },
+      { id: 'k4s2', title: 'Préparer 3 questions', done: false },
+    ],
+    createdAt: dayIn(-3),
+  },
+  {
+    id: 'k5',
+    title: 'Lire 20 pages de "Deep Work"',
+    done: true,
+    status: 'done',
+    priority: 'low',
+    due: dayIn(-1),
+    tags: ['lecture'],
+    subtasks: [],
+    createdAt: dayIn(-2),
+  },
+  {
+    id: 'k6',
+    title: 'Préparer le budget du mois prochain',
+    done: false,
+    status: 'todo',
+    priority: 'medium',
+    due: dayIn(5),
+    tags: ['finance'],
+    subtasks: [],
+    createdAt: dayIn(-1),
+  },
+  {
+    id: 'k7',
+    title: 'Réserver le vol pour les vacances',
+    done: false,
+    status: 'todo',
+    priority: 'low',
+    due: dayIn(9),
+    tags: ['voyage'],
+    subtasks: [],
+    createdAt: dayIn(-4),
+  },
 ];
 
 // ── Notes rapides ────────────────────────────────────────────
@@ -148,6 +224,7 @@ const habits: Habit[] = [
     icon: 'activity',
     color: '#6c757d',
     days: habitDays([dayIn(-1), dayIn(-2), dayIn(-3), dayIn(-5), dayIn(-6)]),
+    missed: habitDays([dayIn(-4), dayIn(-7)]),
   },
   {
     id: 'h2',
@@ -155,6 +232,7 @@ const habits: Habit[] = [
     icon: 'book',
     color: '#5b7388',
     days: habitDays([dayIn(-1), dayIn(-2), dayIn(-3), dayIn(-4), dayIn(-5), dayIn(-6), dayIn(-7)]),
+    missed: {},
   },
   {
     id: 'h3',
@@ -162,6 +240,7 @@ const habits: Habit[] = [
     icon: 'brain',
     color: '#5f7d6a',
     days: habitDays([dayIn(-1), dayIn(-3), dayIn(-4), dayIn(-6)]),
+    missed: habitDays([dayIn(-2), dayIn(-5)]),
   },
   {
     id: 'h4',
@@ -169,6 +248,7 @@ const habits: Habit[] = [
     icon: 'droplets',
     color: '#868e96',
     days: habitDays([dayIn(-1), dayIn(-2), dayIn(-4), dayIn(-5), dayIn(-6), dayIn(-7)]),
+    missed: {},
   },
   {
     id: 'h5',
@@ -176,6 +256,7 @@ const habits: Habit[] = [
     icon: 'moon',
     color: '#495057',
     days: habitDays([dayIn(-2), dayIn(-3), dayIn(-5)]),
+    missed: habitDays([dayIn(-1), dayIn(-4), dayIn(-6), dayIn(-7)]),
   },
 ];
 
@@ -211,6 +292,11 @@ const goals: Goal[] = [
     deadline: addDays(today, 240),
     progress: 62,
     category: 'Finance',
+    milestones: [
+      { id: 'g1m1', label: '10 000 MAD épargnés', done: true },
+      { id: 'g1m2', label: '25 000 MAD épargnés', done: true },
+      { id: 'g1m3', label: '40 000 MAD épargnés', done: false },
+    ],
   },
   {
     id: 'g2',
@@ -220,6 +306,11 @@ const goals: Goal[] = [
     deadline: addDays(today, 160),
     progress: 46,
     category: 'Développement',
+    milestones: [
+      { id: 'g2m1', label: '6 livres lus', done: true },
+      { id: 'g2m2', label: '12 livres lus', done: false },
+      { id: 'g2m3', label: '18 livres lus', done: false },
+    ],
   },
   {
     id: 'g3',
@@ -229,6 +320,11 @@ const goals: Goal[] = [
     deadline: addDays(today, 90),
     progress: 35,
     category: 'Santé',
+    milestones: [
+      { id: 'g3m1', label: 'Courir 2 km', done: true },
+      { id: 'g3m2', label: 'Courir 3,5 km', done: false },
+      { id: 'g3m3', label: 'Courir 5 km', done: false },
+    ],
   },
   {
     id: 'g4',
@@ -238,6 +334,11 @@ const goals: Goal[] = [
     deadline: addDays(today, 120),
     progress: 20,
     category: 'Carrière',
+    milestones: [
+      { id: 'g4m1', label: 'Nom de domaine + hébergement', done: true },
+      { id: 'g4m2', label: '3 articles publiés', done: false },
+      { id: 'g4m3', label: 'Newsletter à 100 abonnés', done: false },
+    ],
   },
 ];
 
@@ -289,7 +390,6 @@ const layout = [
   { i: 'premium', x: 0, y: 33, w: 12, h: 5, minW: 4, minH: 5 },
 ];
 
-// ── État initial complet ─────────────────────────────────────
 export const initialState: AppState = {
   version: 1,
   settings: {
@@ -305,6 +405,16 @@ export const initialState: AppState = {
     coachMode: true,
     lockEnabled: false,
     pin: null,
+    hourFormat: '24',
+    decimalSep: ',',
+    hideAmounts: false,
+    journalProtected: false,
+    budgetWarningThreshold: 80,
+    coachFreq: 'daily',
+    coachTime: '09:00',
+    weeklySummaryDay: 'sunday',
+    animations: { page: true, cards: true, counters: true, smoke: true, parallax: true },
+    firstDayOfWeek: 'monday',
   },
   profile,
   tasks,
@@ -320,4 +430,40 @@ export const initialState: AppState = {
   chatHistory: [],
   layout,
   hidden: {},
+};
+
+// ═════════════════════════════════════════════════════════════
+// Slices pour les stores Zustand (v2)
+// ═════════════════════════════════════════════════════════════
+
+export const initialSettingsSlice = {
+  settings: { ...initialState.settings },
+  profile: { ...initialState.profile },
+};
+
+export const initialDashboardSlice = {
+  layout: initialState.layout.map((l) => ({ ...l })),
+  hidden: {} as Record<string, boolean>,
+};
+
+export const initialFinanceSlice = {
+  transactions: transactions.map((t) => ({ ...t })),
+  budget: budget.map((b) => ({ ...b })),
+  savingsGoals: savingsGoals.map((g) => ({ ...g })),
+  investments: investments.map((i) => ({ ...i })),
+};
+
+export const initialPersonalSlice = {
+  tasks: tasks.map((t) => ({ ...t, subtasks: t.subtasks.map((s) => ({ ...s })) })),
+  notes: notes.map((n) => ({ ...n })),
+  habits: habits.map((h) => ({ ...h, days: { ...h.days }, missed: { ...h.missed } })),
+  journal: journal.map((j) => ({ ...j })),
+  goals: goals.map((g) => ({ ...g, milestones: g.milestones.map((m) => ({ ...m })) })),
+  events: events.map((e) => ({ ...e })),
+};
+
+export const initialChatSlice = {
+  messages: initialState.chatHistory,
+  unreadCount: 0,
+  coachLastAt: null as string | null,
 };

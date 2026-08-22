@@ -9,6 +9,7 @@ import {
   CalendarDays,
   CheckSquare,
   ChevronDown,
+  LayoutDashboard,
   Lock,
   Menu,
   Monitor,
@@ -16,6 +17,7 @@ import {
   NotebookPen,
   Plus,
   Search,
+  Settings as SettingsIcon,
   StickyNote,
   Sun,
   Wallet,
@@ -23,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { formatClock, formatDate, formatMoney, monthKey, todayISO } from '../../utils/helpers';
+import { useUIStore } from '../../store';
 import { rippleHandler } from '../ui';
 import type { WidgetId } from '../../types';
 
@@ -34,6 +37,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const quickRef = useRef<HTMLDivElement>(null);
   const parallaxRef = useRef<HTMLDivElement>(null);
@@ -67,12 +71,22 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
     return () => window.removeEventListener('mousedown', handler);
   }, []);
 
+  // Focus recherche (raccourcis '/' et Ctrl+K)
+  useEffect(() => {
+    const handler = () => {
+      searchInputRef.current?.focus();
+      setSearchOpen(true);
+    };
+    window.addEventListener('lifeos:focus-search', handler);
+    return () => window.removeEventListener('lifeos:focus-search', handler);
+  }, []);
+
   const hour = now.getHours();
   const greeting =
     hour >= 5 && hour < 18 ? t('app.goodmorning') : t('app.goodevening');
   const firstName = state.profile.name.split(' ')[0];
 
-  // ── Alertes budgétaires ──
+  // ── Alertes budgétaires (niveaux warning / critical) ──
   const alerts = useMemo(() => {
     if (!state.settings.budgetAlerts) return [];
     const thisMonth = monthKey(todayISO());
@@ -80,10 +94,15 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
     state.transactions
       .filter((x) => x.type === 'expense' && monthKey(x.date) === thisMonth)
       .forEach((x) => spentByCat.set(x.category, (spentByCat.get(x.category) ?? 0) + x.amount));
-    return state.budget
-      .filter((c) => (spentByCat.get(c.name) ?? 0) > c.planned)
-      .map((c) => ({ cat: c.name, over: (spentByCat.get(c.name) ?? 0) - c.planned }));
-  }, [state.transactions, state.budget, state.settings.budgetAlerts]);
+    const out: { cat: string; over: number; level: 'warning' | 'critical' }[] = [];
+    const threshold = state.settings.budgetWarningThreshold;
+    state.budget.forEach((c) => {
+      const spent = spentByCat.get(c.name) ?? 0;
+      if (spent > c.planned) out.push({ cat: c.name, over: spent - c.planned, level: 'critical' });
+      else if (c.planned > 0 && (spent / c.planned) * 100 >= threshold) out.push({ cat: c.name, over: spent - c.planned, level: 'warning' });
+    });
+    return out;
+  }, [state.transactions, state.budget, state.settings.budgetAlerts, state.settings.budgetWarningThreshold]);
 
   // ── Recherche globale ──
   const results = useMemo(() => {
@@ -171,6 +190,9 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
       <button className="icon-btn menu-btn" style={{ display: 'none' }} onClick={onOpenMenu} aria-label="Menu">
         <Menu size={17} />
       </button>
+      <span className="sidebar-logo header-logo" style={{ width: 32, height: 32, borderRadius: 10 }}>
+        <LayoutDashboard size={16} />
+      </span>
       <span className="avatar">
         {state.profile.avatar ? <img src={state.profile.avatar} alt="" /> : initials}
       </span>
@@ -182,6 +204,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
       <div className="header-search" ref={searchRef}>
         <Search size={15} style={{ color: 'var(--text-muted)' }} />
         <input
+          ref={searchInputRef}
           value={query}
           placeholder={t('header.search')}
           onChange={(e) => {
@@ -264,9 +287,14 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
               ) : (
                 alerts.map((a, i) => (
                   <div key={i} style={{ padding: '10px 12px', fontSize: 12.5, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                    <span style={{ color: 'var(--danger)' }}>⚠</span>
+                    <span style={{ color: a.level === 'critical' ? 'var(--danger)' : 'var(--warning)' }}>
+                      {a.level === 'critical' ? '⛔' : '⚠'}
+                    </span>
                     <span>
-                      <strong>{a.cat}</strong> {t('budget.over')} {formatMoney(a.over, cur)}
+                      <strong>{a.cat}</strong>{' '}
+                      {a.level === 'critical'
+                        ? `${t('budget.over')} ${formatMoney(a.over, cur)}`
+                        : `${t('budget.levelWarning')} · ${t('budget.warningAt')} ${state.settings.budgetWarningThreshold}%`}
                     </span>
                   </div>
                 ))
@@ -309,6 +337,22 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         {/* Verrouiller */}
         <button className="icon-btn" onClick={() => { if (state.settings.lockEnabled) lockNow(); else { updateSettings({ lockEnabled: true }); lockNow(); } }} aria-label={t('header.lock')}>
           <Lock size={15} />
+        </button>
+
+        {/* Paramètres */}
+        <button
+          className="icon-btn"
+          onClick={() => {
+            useUIStore.getState().setView('settings');
+            try {
+              window.location.hash = '/settings';
+            } catch {
+              /* ignore */
+            }
+          }}
+          aria-label={t('header.settings')}
+        >
+          <SettingsIcon size={16} />
         </button>
       </div>
 

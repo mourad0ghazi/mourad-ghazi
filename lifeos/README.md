@@ -1,57 +1,39 @@
-# LifeOS – Mon Dashboard Personnel
+# LifeOS – Mon Dashboard Personnel (v2)
 
 > Un tableau de bord personnel complet pour piloter sa vie : finances, organisation,
 > habitudes, objectifs et un agent IA intégré. Design "fumée" minimaliste
 > (blanc → gris clair), animations douces, 100 % contrôlable.
 
-## ✨ Fonctionnalités
+## 🧰 Stack (v2)
 
-### Vie personnelle
-- 🕐 **Horloge temps réel** (fuseau horaire configurable, semaine ISO)
-- 🌤️ **Météo locale** (Open-Meteo, géolocalisation, repli démo hors-ligne)
-- 📅 **Calendrier interactif** (mois / semaine / jour, événements colorés)
-- ✅ **Todo list** (priorités, échéances, filtres, retards)
-- 📝 **Notes rapides** (édition inline, sauvegarde automatique)
-- 🔁 **Tracker d'habitudes** (grille 7 jours, streaks 🔥)
-- 📓 **Journal quotidien** (humeur, historique)
-- 🎯 **Objectifs SMART** (barres de progression animées, deadlines)
-- 🍅 **Pomodoro** (25/5/15, anneau de progression, son, sessions)
+- **React 18.3 + Vite 5 + TypeScript 5** (strict)
+- **Tailwind CSS 3.4** (utilitaires, config design tokens "smoke") + CSS design system custom
+- **Zustand 4.5** avec persist middleware (5 stores : settings, dashboard, finance, personal, chatbot + UI store)
+- **Framer Motion 11** · **Recharts 2** · **react-grid-layout 1.5** · **Lucide React** · **date-fns** · **clsx** · **tailwind-merge**
 
-### Finances & développement financier
-- 💹 **Aperçu finances** : revenus / dépenses / solde animés, courbes 6 mois (Recharts), camembert par catégorie
-- 🧾 **Transactions** : ajout/suppression, export CSV
-- 📊 **Budget mensuel** : catégories personnalisables, alertes de dépassement (cloche + toasts)
-- 🏦 **Objectifs d'épargne** + versements
-- 📈 **Simulateur d'intérêts composés** (projection animée)
-- 💼 **Investissements** (actions, crypto, immobilier, liquidités — répartition + performance)
-- 🏠 **Calculateur de prêt** (mensualité, coût total, amortissement)
+## 🗺️ Pages
 
-### Agent IA intégré (chatbot)
-- Widget flottant en bas à droite (style Intercom)
-- Réponses **contextuelles** basées sur vos données réelles (budget, tâches, épargne…)
-- 40 conseils financiers + 40 conseils productivité + 24 citations (FR & EN)
-- Mode **Coach**, historique persistant, chips de questions rapides, animation "typing…"
+| Page | Contenu |
+|---|---|
+| **Dashboard** (`#/dashboard`) | Bannière d'accueil (gradient smoke, parallax, mini-stats) + grille drag & drop 15 modules |
+| **Finances** (`#/finances`) | Onglets : Vue d'ensemble / Transactions (pagination, filtres) / Budget / Épargne & simulateur / Investissements / Prêt |
+| **Vie personnelle** (`#/personal`) | Onglets : Tâches (liste + **Kanban**) / Calendrier / Notes / Habitudes (+ progression mensuelle) / Journal / Objectifs SMART |
+| **Premium** (`#/premium`) | Hero, 12 features, pricing (Gratuit 0 € vs Premium 9,99 €/mois), FAQ accordion |
+| **Paramètres** (`#/settings`) | 9 onglets de configuration complète |
 
-### Contrôle & personnalisation
-- **Drag & drop** des cartes + **redimensionnement** (react-grid-layout)
-- **Masquer / afficher** chaque module (sidebar ou paramètres)
-- **Paramètres** : profil & photo, thème (clair/sombre/auto), accent, densité,
-  langue (FR/EN), devise, format de date, fuseau horaire, notifications, coach
-- **Recherche globale** en temps réel (`/`)
-- **Verrouillage par code PIN** (écran de verrouillage dédié)
-- **Import / Export JSON**, export CSV, réinitialisation
-- **Raccourcis clavier** : `/` recherche · `N` tâche · `Shift+N` note · `T` thème · `P` pomodoro · `?` raccourcis · `L` verrouiller
-- **Persistance totale** dans `localStorage`
+## ✨ Fonctionnalités clés
 
-### Premium (mocké)
-12 fonctionnalités verrouillées (IA avancée, rapports PDF/Excel, sync bancaire,
-cloud, famille, intégrations, PWA, API, support prioritaire…) avec modale
-« Passez à Premium ».
-
-## 🧰 Stack
-
-React 18 + TypeScript + Vite · Framer Motion · Recharts · react-grid-layout ·
-Lucide Icons · CSS custom (design system "smoke", light/dark, 3 densités).
+- **Drag & drop + redimensionnement** des modules, masquer/afficher, layout persisté
+- **Tâches** : sous-tâches, tags, priorités (dont Urgente), statuts (À faire/En cours/Terminé), Kanban, réordonnancement par glisser-déposer, export CSV
+- **Habitudes** : tri-état (fait ✓ / manqué ✗ / vide), streaks, graphique mensuel
+- **Objectifs SMART** : milestones (étapes clés), échéances, alertes de retard
+- **Journal** : humeur, historique, **protection par PIN optionnelle**
+- **Finances** : graphiques animés, budget avec **alertes à niveaux** (attention ≥ seuil configurable, critique > 100 %), simulateur d'intérêts composés, calculateur de prêt, investissements, export CSV
+- **Agent IA** : réponses contextuelles (budget, revenus, dépenses, tâches, planification), 80 conseils + 48 citations + 20 faits éducatifs (FR/EN), **coach proactif** (fréquence + heure configurables), badge non-lus, historique persistant
+- **Paramètres** : thème clair/sombre/auto, accents, densité, toggles d'animations, langue FR/EN, devises, formats de date/heure (12h/24h), séparateur décimal, **masquage des montants**, fuseau horaire, notifications, PIN de verrouillage
+- **Raccourcis clavier** : `Ctrl+K` recherche · `Ctrl+T` tâche · `Ctrl+N` note · `Ctrl+M` transaction · `Ctrl+/` assistant · `Ctrl+Shift+L` thème · `Ctrl+,` paramètres · `Ctrl+?` aide · `P` pomodoro · `L` verrouiller
+- **Données** : import/export JSON, export CSV, réinitialisation, **migration automatique v1 → v2** du localStorage
+- **Responsive** : desktop (grille 12 colonnes), tablette (2 colonnes / empilé), mobile (empilé + sidebar tiroir)
 
 ## 🚀 Lancer
 
@@ -59,38 +41,32 @@ Lucide Icons · CSS custom (design system "smoke", light/dark, 3 densités).
 cd lifeos
 npm install
 npm run dev      # http://localhost:5173
+npm run build    # lifeos/dist (assets relatifs → déployable en sous-dossier)
 ```
-
-## 📦 Production / GitHub Pages
-
-```bash
-npm run build    # génère lifeos/dist (assets relatifs, déployable en sous-dossier)
-```
-
-Le dossier `dist/` est commité : il suffit d'activer GitHub Pages sur le repo
-et de visiter `/lifeos/dist/` — ou de copier son contenu à la racine de la page.
 
 ## 🗂️ Structure
 
 ```
 lifeos/src
-├── components
-│   ├── layout/       # Sidebar, Header (recherche, notifs, actions rapides)
-│   ├── modules/      # personal (horloge, météo, calendrier, pomodoro)
-│   │                 # planner (tâches, notes, habitudes, journal, objectifs)
-│   │                 # finance (aperçu, budget) + finance2 (épargne, invest., prêt)
-│   ├── chatbot/      # agent IA + moteur de règles
-│   ├── settings/     # panneau de paramètres (9 onglets)
-│   └── ui.tsx        # composants réutilisables (modal, toggle, compteurs…)
-├── context/          # état global + persistance + toasts + thème
-├── data/             # données initiales (mock), registre modules, base de connaissances IA
+├── store/            # Zustand (settings, dashboard, finance, personal, chatbot, ui) + migration v1→v2
+├── context/          # AppProvider : composition des stores, toasts, thème, verrouillage
+├── data/             # données initiales, base de connaissances IA (conseils, citations, faits), registre modules
 ├── i18n/             # traductions FR / EN
-├── styles/           # design system CSS complet
-└── utils/            # dates, formats, CSV, stockage
+├── utils/            # formateurs, calculs financiers, formatConfig (masquage/séparateur/horloge), helpers
+├── hooks/            # (composants UI : useMediaQuery, useReveal…)
+├── components/
+│   ├── layout/       # Sidebar (pages + modules), Header (recherche, alertes, actions rapides)
+│   ├── pages/        # DashboardPage, FinancePage, PersonalPage, PremiumPage (+ SettingsContent)
+│   ├── modules/      # personal, planner, finance, finance2, extended (Kanban, mensuel, transactions)
+│   ├── chatbot/      # widget + moteur de réponses + coach proactif
+│   ├── settings/     # panneau de paramètres
+│   └── ui.tsx        # Modal, Toggle, compteurs animés, ripple, skeleton…
+├── styles/           # global.css (design system) + tailwind.css
+└── types.ts          # typage complet
 ```
 
-## 📄 Données initiales
+## 📄 Données
 
-Aucun fichier Excel n'ayant été fourni, des données de démonstration réalistes
-(Mourad Ghazi, Casablanca, MAD) sont pré-chargées. Importez votre propre export
-via **Paramètres → Données → Importer (JSON)** ou remplacez `src/data/initialData.ts`.
+Aucun fichier Excel n'étant fourni, des données de démonstration réalistes
+(Mourad Ghazi, Casablanca, MAD) sont pré-chargées. Importez vos données via
+**Paramètres → Données → Importer (JSON)** ou remplacez `src/data/initialData.ts`.

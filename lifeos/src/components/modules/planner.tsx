@@ -11,7 +11,9 @@ import {
   CalendarClock,
   CheckSquare,
   ClipboardList,
+  Download,
   Droplets,
+  Lock,
   Moon,
   NotebookPen,
   Pencil,
@@ -25,7 +27,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { ConfirmDialog, EmptyState, Modal, ProgressBar, WidgetHead, rippleHandler } from '../ui';
-import { daysUntil, formatDate, lastNDays, parseISODate, percent, todayISO } from '../../utils/helpers';
+import { daysUntil, downloadCSV, formatDate, lastNDays, parseISODate, percent, todayISO } from '../../utils/helpers';
 import type { Priority, WidgetId } from '../../types';
 
 const fmt = (lang: string) => (lang === 'fr' ? 'fr-FR' : 'en-US');
@@ -35,25 +37,28 @@ const PRIORITY_META: Record<Priority, { cls: string; key: string; color: string 
   low: { cls: 'neutral', key: 'tasks.pLow', color: 'var(--text-muted)' },
   medium: { cls: 'info', key: 'tasks.pMedium', color: 'var(--info)' },
   high: { cls: 'danger', key: 'tasks.pHigh', color: 'var(--danger)' },
+  urgent: { cls: 'warning', key: 'tasks.pUrgent', color: 'var(--warning)' },
 };
 
 export function TasksWidget({ id }: { id: WidgetId }) {
-  const { t, state, addTask, updateTask, deleteTask } = useApp();
+  const { t, state, addTask, updateTask, deleteTask, setTaskStatus, reorderTasks, addSubtask, toggleSubtask, deleteSubtask } = useApp();
   const [filter, setFilter] = useState<'all' | 'active' | 'done'>('all');
   const [text, setText] = useState('');
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [subText, setSubText] = useState<string>('');
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Ordre = ordre personnalisé de l'utilisateur (réordonnable par drag & drop).
+  // Les tâches terminées sont regroupées en fin de liste.
   const list = useMemo(() => {
-    const sorted = [...state.tasks].sort((a, b) => {
-      if (a.done !== b.done) return a.done ? 1 : -1;
-      const p = { low: 2, medium: 1, high: 0 } as const;
-      if (p[a.priority] !== p[b.priority]) return p[a.priority] - p[b.priority];
-      return (a.due ?? '9999').localeCompare(b.due ?? '9999');
-    });
-    if (filter === 'active') return sorted.filter((x) => !x.done);
-    if (filter === 'done') return sorted.filter((x) => x.done);
-    return sorted;
+    const base = [...state.tasks];
+    const active = base.filter((x) => !x.done);
+    const done = base.filter((x) => x.done);
+    if (filter === 'active') return active;
+    if (filter === 'done') return done;
+    return [...active, ...done];
   }, [state.tasks, filter]);
 
   // Raccourci clavier / action rapide : focus sur le champ "nouvelle tâche"
@@ -77,12 +82,53 @@ export function TasksWidget({ id }: { id: WidgetId }) {
 
   const setPriority = (id: string, p: Priority) => updateTask(id, { priority: p });
 
+  const exportCsv = () => {
+    downloadCSV(
+      `lifeos-tasks-${todayISO()}.csv`,
+      list.map((x) => ({
+        title: x.title,
+        status: x.status,
+        priority: x.priority,
+        due: x.due ?? '',
+        tags: x.tags.join(';'),
+        subtasks_done: `${x.subtasks.filter((s) => s.done).length}/${x.subtasks.length}`,
+      })),
+    );
+  };
+
+  // Réordonnancement par drag & drop (HTML5) — réordonne le tableau de stockage
+  const onDrop = (targetIndex: number) => {
+    if (dragIndex === null || dragIndex === targetIndex) return;
+    // Reconstruit l'ordre global : actives (dans l'ordre du store) + terminées
+    const activeIds = state.tasks.filter((x) => !x.done).map((x) => x.id);
+    const fromId = list[dragIndex].id;
+    const toId = list[targetIndex].id;
+    const fromIdx = activeIds.indexOf(fromId);
+    const toIdx = activeIds.indexOf(toId);
+    if (fromIdx >= 0 && toIdx >= 0) {
+      const [moved] = activeIds.splice(fromIdx, 1);
+      activeIds.splice(toIdx, 0, moved);
+      const byId = new Map(state.tasks.map((x) => [x.id, x]));
+      const newOrder = [
+        ...activeIds.map((id) => byId.get(id)!),
+        ...state.tasks.filter((x) => x.done),
+      ];
+      reorderTasks(newOrder);
+    }
+    setDragIndex(null);
+  };
+
   return (
     <div className="widget-card">
       <WidgetHead
         icon={<CheckSquare size={17} />}
         title={t('mod.tasks')}
         sub={`${doneCount}/${state.tasks.length} ${t('tasks.completed')}`}
+        actions={
+          <button className="btn sm" onClick={(e) => { rippleHandler(e); exportCsv(); }} title={t('tasks.exportCsv')}>
+            <Download size={13} />
+          </button>
+        }
       />
       <div className="widget-body">
         <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
@@ -111,50 +157,118 @@ export function TasksWidget({ id }: { id: WidgetId }) {
           {list.length === 0 && (
             <EmptyState icon={<CheckSquare size={22} />} text={t('tasks.empty')} />
           )}
-          {list.map((task) => {
+          {list.map((task, i) => {
             const overdue = !task.done && task.due && task.due < todayISO();
+            const isExpanded = expanded === task.id;
             return (
-              <div key={task.id} className="list-item" style={{ opacity: task.done ? 0.55 : 1 }}>
+              <div
+                key={task.id}
+                className="list-item"
+                style={{ opacity: task.done ? 0.55 : 1, cursor: 'grab' }}
+                draggable
+                onDragStart={() => setDragIndex(i)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => onDrop(i)}
+                onDragEnd={() => setDragIndex(null)}
+              >
                 <button
                   className={`checkbox ${task.done ? 'on' : ''}`}
-                  onClick={() => updateTask(task.id, { done: !task.done })}
+                  onClick={() => {
+                    updateTask(task.id, { done: !task.done });
+                    setTaskStatus(task.id, task.done ? 'todo' : 'done');
+                  }}
                   aria-label="toggle"
                 >
                   {task.done && <CheckSquare size={12} />}
                 </button>
                 <div className="li-main">
-                  <div className="li-title" style={{ textDecoration: task.done ? 'line-through' : 'none' }}>{task.title}</div>
+                  <div className="li-title" style={{ textDecoration: task.done ? 'line-through' : 'none', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span>{task.title}</span>
+                    {task.subtasks.length > 0 && (
+                      <span className="badge neutral" style={{ fontSize: 9, cursor: 'pointer' }} onClick={() => setExpanded(isExpanded ? null : task.id)}>
+                        {task.subtasks.filter((s) => s.done).length}/{task.subtasks.length} {t('tasks.subtasks').toLowerCase()} {isExpanded ? '▴' : '▾'}
+                      </span>
+                    )}
+                    {task.tags.map((tag) => (
+                      <span key={tag} className="badge accent" style={{ fontSize: 9 }}>#{tag}</span>
+                    ))}
+                  </div>
                   {task.due && (
                     <div className="li-sub" style={{ color: overdue ? 'var(--danger)' : undefined }}>
                       <CalendarClock size={10} style={{ verticalAlign: -1 }} /> {formatDate(task.due, state.settings.dateFormat)}
                       {overdue && ` · ${t('tasks.overdue')}`}
                     </div>
                   )}
+                  {isExpanded && (
+                    <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {task.subtasks.map((st) => (
+                        <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                          <button className={`checkbox ${st.done ? 'on' : ''}`} style={{ width: 15, height: 15, borderRadius: 5 }} onClick={() => toggleSubtask(task.id, st.id)} aria-label="toggle subtask">
+                            {st.done && <CheckSquare size={9} />}
+                          </button>
+                          <span style={{ flex: 1, textDecoration: st.done ? 'line-through' : 'none', color: 'var(--text-soft)' }}>{st.title}</span>
+                          <button className="icon-btn" style={{ width: 18, height: 18, opacity: 0.35 }} onClick={() => deleteSubtask(task.id, st.id)} aria-label={t('act.delete')}>
+                            <Trash2 size={10} />
+                          </button>
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <input
+                          className="input"
+                          style={{ height: 26, fontSize: 11.5 }}
+                          placeholder={t('tasks.subtaskPh')}
+                          value={subText}
+                          onChange={(e) => setSubText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && subText.trim()) {
+                              addSubtask(task.id, subText.trim());
+                              setSubText('');
+                            }
+                          }}
+                        />
+                        <button
+                          className="btn sm"
+                          onClick={() => {
+                            if (subText.trim()) {
+                              addSubtask(task.id, subText.trim());
+                              setSubText('');
+                            }
+                          }}
+                          aria-label={t('act.add')}
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="seg-group" style={{ padding: 2 }}>
-                  {(Object.keys(PRIORITY_META) as Priority[]).map((p) => (
-                    <button
-                      key={p}
-                      className="seg-btn"
-                      title={t(PRIORITY_META[p].key)}
-                      style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: '50%',
-                        padding: 0,
-                        background: p === task.priority ? PRIORITY_META[p].color : 'var(--border)',
-                      }}
-                      onClick={() => setPriority(task.id, p)}
-                    />
-                  ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+                  <div className="seg-group" style={{ padding: 2 }}>
+                    {(Object.keys(PRIORITY_META) as Priority[]).map((p) => (
+                      <button
+                        key={p}
+                        className="seg-btn"
+                        title={t(PRIORITY_META[p].key)}
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          padding: 0,
+                          background: p === task.priority ? PRIORITY_META[p].color : 'var(--border)',
+                        }}
+                        onClick={() => setPriority(task.id, p)}
+                      />
+                    ))}
+                  </div>
+                  <button className="icon-btn" style={{ width: 26, height: 26, opacity: 0.45 }} onClick={() => setConfirmId(task.id)} aria-label={t('act.delete')}>
+                    <Trash2 size={13} />
+                  </button>
                 </div>
-                <button className="icon-btn" style={{ width: 26, height: 26, opacity: 0.45 }} onClick={() => setConfirmId(task.id)} aria-label={t('act.delete')}>
-                  <Trash2 size={13} />
-                </button>
               </div>
             );
           })}
         </div>
+        <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 8 }}>{t('tasks.dragHint')}</div>
       </div>
       <ConfirmDialog
         open={confirmId !== null}
@@ -240,7 +354,7 @@ const HABIT_ICON_MAP: Record<string, LucideIcon> = {
 };
 
 export function HabitsWidget({ id }: { id: WidgetId }) {
-  const { t, state, addHabit, deleteHabit, toggleHabitDay } = useApp();
+  const { t, state, addHabit, deleteHabit, cycleHabitDay } = useApp();
   const [name, setName] = useState('');
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const days = lastNDays(7);
@@ -294,19 +408,26 @@ export function HabitsWidget({ id }: { id: WidgetId }) {
                 </span>
                 <div className="habit-days">
                   {days.map((d) => {
-                    const on = Boolean(habit.days[d]);
+                    const done = Boolean(habit.days[d]);
+                    const missed = Boolean(habit.missed[d]);
                     const isToday = d === todayISO();
                     const dowLabel = parseISODate(d).toLocaleDateString(fmt(state.settings.lang), { weekday: 'short' }).slice(0, 1).toUpperCase();
                     return (
                       <button
                         key={d}
-                        className={`habit-day ${on ? 'on' : ''} ${isToday ? 'today' : ''}`}
-                        style={on ? { background: habit.color } : undefined}
-                        title={`${dowLabel} ${formatDate(d, state.settings.dateFormat)}`}
-                        onClick={() => toggleHabitDay(habit.id, d)}
+                        className={`habit-day ${done ? 'on' : ''} ${isToday ? 'today' : ''}`}
+                        style={
+                          done
+                            ? { background: habit.color }
+                            : missed
+                              ? { background: 'var(--danger)', color: '#fff', borderColor: 'var(--danger)' }
+                              : undefined
+                        }
+                        title={`${dowLabel} ${formatDate(d, state.settings.dateFormat)} — ${done ? t('habits.doneToday') : missed ? t('habits.missed') : ''}`}
+                        onClick={() => cycleHabitDay(habit.id, d)}
                         aria-label={d}
                       >
-                        {on ? '✓' : ''}
+                        {done ? '✓' : missed ? '✗' : ''}
                       </button>
                     );
                   })}
@@ -324,6 +445,7 @@ export function HabitsWidget({ id }: { id: WidgetId }) {
             );
           })}
         </div>
+        <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 8 }}>{t('habits.clickCycle')}</div>
       </div>
       <ConfirmDialog
         open={confirmId !== null}
@@ -338,7 +460,7 @@ export function HabitsWidget({ id }: { id: WidgetId }) {
 
 /* ══════════════ JOURNAL ══════════════ */
 export function JournalWidget({ id }: { id: WidgetId }) {
-  const { t, state, upsertJournal, deleteJournal } = useApp();
+  const { t, state, upsertJournal, deleteJournal, unlock } = useApp();
   const today = todayISO();
   const existing = state.journal.find((j) => j.date === today);
   const [content, setContent] = useState(existing?.content ?? '');
@@ -346,6 +468,21 @@ export function JournalWidget({ id }: { id: WidgetId }) {
   const [savedFlash, setSavedFlash] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(today);
+  // Protection par PIN
+  const [pinOpen, setPinOpen] = useState(state.settings.journalProtected);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+
+  const tryPin = () => {
+    if (unlock(pinInput)) {
+      setPinOpen(false);
+      setPinInput('');
+      setPinError(false);
+    } else {
+      setPinError(true);
+      setPinInput('');
+    }
+  };
 
   const entryForSelected = state.journal.find((j) => j.date === selectedDate);
 
@@ -362,7 +499,33 @@ export function JournalWidget({ id }: { id: WidgetId }) {
 
   return (
     <div className="widget-card">
-      <WidgetHead icon={<NotebookPen size={17} />} title={t('mod.journal')} sub={t('journal.today')} />
+      <WidgetHead
+        icon={<NotebookPen size={17} />}
+        title={t('mod.journal')}
+        sub={state.settings.journalProtected ? `🔒 ${t('journal.protected')}` : t('journal.today')}
+      />
+      {pinOpen ? (
+        <div className="widget-body" style={{ alignItems: 'center', justifyContent: 'center', gap: 14, textAlign: 'center' }}>
+          <Lock size={28} style={{ color: 'var(--text-muted)' }} />
+          <div style={{ fontSize: 13, color: 'var(--text-soft)' }}>{t('journal.enterPin')}</div>
+          <input
+            className="input"
+            type="password"
+            inputMode="numeric"
+            maxLength={4}
+            value={pinInput}
+            placeholder="••••"
+            style={{ width: 140, textAlign: 'center' }}
+            onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
+            onKeyDown={(e) => e.key === 'Enter' && tryPin()}
+            autoFocus
+          />
+          {pinError && <span style={{ fontSize: 12, color: 'var(--danger)' }}>{t('lock.wrong')}</span>}
+          <button className="btn primary" onClick={tryPin}>
+            <Lock size={14} /> {t('journal.unlock')}
+          </button>
+        </div>
+      ) : (
       <div className="widget-body">
         <textarea
           className="textarea"
@@ -423,6 +586,7 @@ export function JournalWidget({ id }: { id: WidgetId }) {
           )}
         </div>
       </div>
+      )}
       <ConfirmDialog
         open={confirmId !== null}
         onClose={() => setConfirmId(null)}
@@ -436,9 +600,11 @@ export function JournalWidget({ id }: { id: WidgetId }) {
 
 /* ══════════════ OBJECTIFS SMART ══════════════ */
 export function GoalsWidget({ id }: { id: WidgetId }) {
-  const { t, state, addGoal, updateGoal, deleteGoal } = useApp();
+  const { t, state, addGoal, updateGoal, deleteGoal, addMilestone, toggleMilestone, deleteMilestone } = useApp();
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [mileTexts, setMileTexts] = useState<Record<string, string>>({});
+  const setMileText = (goalId: string, v: string) => setMileTexts((m) => ({ ...m, [goalId]: v }));
   const [form, setForm] = useState({
     title: '',
     specific: '',
@@ -472,6 +638,7 @@ export function GoalsWidget({ id }: { id: WidgetId }) {
           const left = daysUntil(goal.deadline);
           const overdue = left < 0;
           const done = goal.progress >= 100;
+          const milestonesDone = goal.milestones.filter((m) => m.done).length;
           return (
             <div key={goal.id} className="note-card">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
@@ -508,6 +675,41 @@ export function GoalsWidget({ id }: { id: WidgetId }) {
               </div>
               <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 6 }}>
                 {t('goals.measurable')}: {goal.measurable}
+              </div>
+              {/* Milestones */}
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+                  {t('goals.milestones')} · {milestonesDone}/{goal.milestones.length} {t('goals.milestoneDone')}
+                </div>
+                {goal.milestones.map((m) => (
+                  <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', fontSize: 12 }}>
+                    <button className={`checkbox ${m.done ? 'on' : ''}`} style={{ width: 15, height: 15, borderRadius: 5 }} onClick={() => toggleMilestone(goal.id, m.id)} aria-label="toggle milestone">
+                      {m.done && <CheckSquare size={9} />}
+                    </button>
+                    <span style={{ flex: 1, textDecoration: m.done ? 'line-through' : 'none', color: m.done ? 'var(--text-muted)' : 'var(--text-soft)' }}>{m.label}</span>
+                    <button className="icon-btn" style={{ width: 18, height: 18, opacity: 0.3 }} onClick={() => deleteMilestone(goal.id, m.id)} aria-label={t('act.delete')}>
+                      <Trash2 size={10} />
+                    </button>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                  <input
+                    className="input"
+                    style={{ height: 26, fontSize: 11.5 }}
+                    placeholder={t('goals.milestonePh')}
+                    value={mileTexts[goal.id] ?? ''}
+                    onChange={(e) => setMileText(goal.id, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (mileTexts[goal.id] ?? '').trim()) {
+                        addMilestone(goal.id, (mileTexts[goal.id] ?? '').trim());
+                        setMileText(goal.id, '');
+                      }
+                    }}
+                  />
+                  <button className="btn sm" onClick={() => { const v = (mileTexts[goal.id] ?? '').trim(); if (v) { addMilestone(goal.id, v); setMileText(goal.id, ''); } }} aria-label={t('act.add')}>
+                    <Plus size={12} />
+                  </button>
+                </div>
               </div>
             </div>
           );

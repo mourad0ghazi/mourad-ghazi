@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import type { DateFormat, Settings } from '../types';
+import { applyMask, formatConfig } from './formatConfig';
 
 export const uid = (): string =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
@@ -83,7 +84,10 @@ export function formatMoney(
   currency: string = 'MAD',
   opts: { compact?: boolean; sign?: boolean } = {},
 ): string {
-  const locale = currencies[currency] || 'fr-FR';
+  if (formatConfig.hideAmounts) return '•••••';
+  // Séparateur décimal : ',' → locale fr-FR, '.' → locale en-US
+  const base = currencies[currency] || 'fr-FR';
+  const locale = formatConfig.decimalSep === '.' ? 'en-US' : base;
   const sign = opts.sign && value > 0 ? '+' : '';
   try {
     if (opts.compact) {
@@ -124,10 +128,11 @@ export function formatClock(date: Date, timezone: string, locale = 'fr-FR'): str
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
+      hour12: formatConfig.hour12,
       timeZone: timezone,
     });
   } catch {
-    return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: formatConfig.hour12 });
   }
 }
 

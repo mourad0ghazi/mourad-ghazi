@@ -343,7 +343,13 @@ export function BudgetWidget({ id }: { id: WidgetId }) {
 
   const totalPlanned = state.budget.reduce((s, c) => s + c.planned, 0);
   const totalSpent = state.budget.reduce((s, c) => s + (spentByCat.get(c.name) ?? 0), 0);
-  const overCount = state.budget.filter((c) => (spentByCat.get(c.name) ?? 0) > c.planned).length;
+  const warnThreshold = state.settings.budgetWarningThreshold;
+  const criticalCats = state.budget.filter((c) => (spentByCat.get(c.name) ?? 0) > c.planned);
+  const warningCats = state.budget.filter((c) => {
+    const spent = spentByCat.get(c.name) ?? 0;
+    return spent <= c.planned && c.planned > 0 && (spent / c.planned) * 100 >= warnThreshold;
+  });
+  const overCount = criticalCats.length;
 
   const save = () => {
     const planned = Number(form.planned);
@@ -397,26 +403,28 @@ export function BudgetWidget({ id }: { id: WidgetId }) {
           {state.budget.map((cat) => {
             const spent = spentByCat.get(cat.name) ?? 0;
             const pct = cat.planned > 0 ? (spent / cat.planned) * 100 : 0;
-            const over = spent > cat.planned;
+            const critical = spent > cat.planned;
+            const warning = !critical && pct >= warnThreshold;
             return (
               <div key={cat.id}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 600 }}>
                     <span style={{ width: 9, height: 9, borderRadius: 3, background: cat.color, flex: 'none' }} />
                     {cat.name}
-                    {over && <span className="badge danger" style={{ fontSize: 9 }}>⚠ {t('budget.alert')}</span>}
+                    {critical && <span className="badge danger" style={{ fontSize: 9 }}>⚠ {t('budget.levelCritical')}</span>}
+                    {warning && <span className="badge warning" style={{ fontSize: 9 }}>{t('budget.levelWarning')}</span>}
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5 }}>
-                    <span style={{ color: over ? 'var(--danger)' : 'var(--text-soft)', fontWeight: 600 }}>
-                      {formatMoney(spent, cur)} / {formatMoney(cat.planned, cur)}
+                    <span style={{ color: critical ? 'var(--danger)' : warning ? 'var(--warning)' : 'var(--text-soft)', fontWeight: 600 }}>
+                      {formatMoney(spent, cur)} / {formatMoney(cat.planned, cur)} · {Math.round(pct)}%
                     </span>
                     <button className="icon-btn" style={{ width: 20, height: 20, opacity: 0.35 }} onClick={() => setConfirmId(cat.id)} aria-label={t('act.delete')}>
                       <Trash2 size={10} />
                     </button>
                   </span>
                 </div>
-                <ProgressBar value={Math.min(100, pct)} color={over ? 'danger' : pct > 85 ? 'warning' : 'accent'} height={6} />
-                {over && (
+                <ProgressBar value={Math.min(100, pct)} color={critical ? 'danger' : warning ? 'warning' : 'accent'} height={6} />
+                {critical && (
                   <div style={{ fontSize: 10.5, color: 'var(--danger)', marginTop: 2 }}>
                     {t('budget.over')} {formatMoney(spent - cat.planned, cur)}
                   </div>

@@ -1,0 +1,6 @@
+/* LifeOS – couche Tailwind (utilitaires, preflight désactivé).
+   Le design system principal reste dans styles/global.css. */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

@@ -24,7 +24,7 @@ import { useApp } from '../context/AppContext';
 import { Modal, WidgetHead } from './ui';
 import type { WidgetId } from '../types';
 
-const PREMIUM_FEATURES: { key: string; descKey: string; icon: LucideIcon }[] = [
+export const PREMIUM_FEATURES_META: { key: string; descKey: string; icon: LucideIcon }[] = [
   { key: 'prem.f1', descKey: 'prem.f1d', icon: Bot },
   { key: 'prem.f2', descKey: 'prem.f2d', icon: FileText },
   { key: 'prem.f3', descKey: 'prem.f3d', icon: Landmark },
@@ -38,6 +38,8 @@ const PREMIUM_FEATURES: { key: string; descKey: string; icon: LucideIcon }[] = [
   { key: 'prem.f11', descKey: 'prem.f11d', icon: Gem },
   { key: 'prem.f12', descKey: 'prem.f12d', icon: Wifi },
 ];
+
+const PREMIUM_FEATURES = PREMIUM_FEATURES_META;
 
 export function PremiumWidget({ id }: { id: WidgetId }) {
   const { t, openPremium } = useApp();
@@ -94,15 +96,30 @@ export function PremiumModal() {
         </span>
       }
       footer={
-        <button
-          className="btn primary"
-          onClick={() => {
-            showToast(t('toast.premium'), 'warning');
-            closePremium();
-          }}
-        >
-          <Crown size={14} /> {t('prem.cta')}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, fontWeight: 700, marginRight: 'auto' }}>
+            {t('prem.price')} <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{t('prem.perMonth')}</span>
+          </span>
+          <button
+            className="btn ghost"
+            onClick={() => {
+              const el = document.getElementById('premium-pricing');
+              closePremium();
+              window.setTimeout(() => el?.scrollIntoView({ behavior: 'smooth' }), 150);
+            }}
+          >
+            {t('prem.free')}
+          </button>
+          <button
+            className="btn primary"
+            onClick={() => {
+              showToast(t('toast.premium'), 'warning');
+              closePremium();
+            }}
+          >
+            <Crown size={14} /> {t('prem.trial')}
+          </button>
+        </div>
       }
     >
       <p style={{ margin: '0 0 16px', color: 'var(--text-soft)', fontSize: 13.5 }}>{t('prem.modalDesc')}</p>
