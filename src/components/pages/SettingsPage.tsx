@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, Bell, CalendarDays, Check, CircleDollarSign, Databa
 import { motion } from 'framer-motion'
 import { dashboardPresets } from '../../data/dashboardPresets'
 import { modules, type ModuleId } from '../../data/modules'
-import { sortLayout, useDashboardStore, useFinanceStore, usePersonalStore, useSettingsStore, useUIStore } from '../../store'
+import { sortLayout, useDashboardStore, useFinancePlanningStore, useFinanceStore, usePersonalStore, useSettingsStore, useUIStore } from '../../store'
 import type { Density, Settings, Theme } from '../../types'
 import { queueExcelImportFile } from '../../utils/excelHandoff'
 import { downloadFile, formatCurrency, formatDate, initials } from '../../utils/helpers'
@@ -88,7 +88,7 @@ function DataSettings() {
   const showToast = useUIStore((state) => state.showToast)
   const setView = useUIStore((state) => state.setView)
   const backup = () => {
-    const data = { exportedAt: new Date().toISOString(), version: 2, settings: useSettingsStore.getState(), finance: useFinanceStore.getState(), personal: usePersonalStore.getState(), dashboard: useDashboardStore.getState() }
+    const data = { exportedAt: new Date().toISOString(), version: 3, settings: useSettingsStore.getState(), finance: useFinanceStore.getState(), financePlanning: useFinancePlanningStore.getState(), personal: usePersonalStore.getState(), dashboard: useDashboardStore.getState() }
     downloadFile('lifeos-donnees.json', JSON.stringify(data, null, 2), 'application/json')
     localStorage.setItem('lifeos:last-backup', new Date().toISOString())
     showToast('Sauvegarde téléchargée')
@@ -100,6 +100,7 @@ function DataSettings() {
         const data = JSON.parse(text)
         if (data.settings) localStorage.setItem('lifeos:v2:settings', JSON.stringify({ state: data.settings, version: 0 }))
         if (data.finance) localStorage.setItem('lifeos:v2:finance', JSON.stringify({ state: data.finance, version: 0 }))
+        if (data.financePlanning) localStorage.setItem('lifeos:v2:finance-settings', JSON.stringify({ state: data.financePlanning, version: 1 }))
         if (data.personal) localStorage.setItem('lifeos:v2:personal', JSON.stringify({ state: data.personal, version: 0 }))
         if (data.dashboard) localStorage.setItem('lifeos:v2:dashboard', JSON.stringify({ state: { layout: data.dashboard.layout, visible: data.dashboard.visible, activePreset: data.dashboard.activePreset ?? null }, version: 3 }))
         showToast('Données restaurées')

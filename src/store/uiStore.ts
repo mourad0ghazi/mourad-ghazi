@@ -15,7 +15,7 @@ interface UIState {
   showToast: (message: string) => void
   clearToast: () => void
 }
-const validViews: View[]=['dashboard','finances','personal','tools','settings']
+const validViews: View[]=['dashboard','finances','finance-settings','personal','tools','settings']
 const hashView=location.hash.replace('#/','')
 export const useUIStore = create<UIState>((set) => ({
   view: validViews.includes(hashView as View)?hashView as View:'dashboard', sidebarOpen: false, modal: null, toast: null, locked: false,

@@ -1,10 +1,11 @@
-import { BarChart3, Gift, Heart, LayoutDashboard, Settings } from 'lucide-react'
+import { BarChart3, Gift, Heart, LayoutDashboard, Settings, SlidersHorizontal } from 'lucide-react'
 import type { View } from '../../types'
 import { useUIStore } from '../../store'
 
 const items: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Accueil', icon: LayoutDashboard },
   { id: 'finances', label: 'Finances', icon: BarChart3 },
+  { id: 'finance-settings', label: 'Plan', icon: SlidersHorizontal },
   { id: 'personal', label: 'Vie', icon: Heart },
   { id: 'tools', label: 'Outils', icon: Gift },
   { id: 'settings', label: 'Réglages', icon: Settings },

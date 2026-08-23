@@ -1,4 +1,4 @@
-export type View = 'dashboard' | 'finances' | 'personal' | 'tools' | 'settings'
+export type View = 'dashboard' | 'finances' | 'finance-settings' | 'personal' | 'tools' | 'settings'
 export type Theme = 'light' | 'dark' | 'auto'
 export type Density = 'compact' | 'comfortable' | 'spacious'
 export type TaskStatus = 'todo' | 'doing' | 'done'

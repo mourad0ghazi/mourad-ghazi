@@ -8,6 +8,7 @@ import { MobileNav } from './components/layout/MobileNav'
 import { Sidebar } from './components/layout/Sidebar'
 import { DashboardPage } from './components/pages/DashboardPage'
 import { FinancePage } from './components/pages/FinancePage'
+import { FinanceSettingsPage } from './components/pages/FinanceSettingsPage'
 import { PersonalPage } from './components/pages/PersonalPage'
 import { SettingsPage } from './components/pages/SettingsPage'
 import { ToolsPage } from './components/pages/ToolsPage'
@@ -15,8 +16,8 @@ import { useSettingsStore, useUIStore } from './store'
 import type { View } from './types'
 import { Button, Input } from './components/ui'
 
-const pages:Record<View,React.ComponentType>={dashboard:DashboardPage,finances:FinancePage,personal:PersonalPage,tools:ToolsPage,settings:SettingsPage}
-const valid:View[]=['dashboard','finances','personal','tools','settings']
+const pages:Record<View,React.ComponentType>={dashboard:DashboardPage,finances:FinancePage,'finance-settings':FinanceSettingsPage,personal:PersonalPage,tools:ToolsPage,settings:SettingsPage}
+const valid:View[]=['dashboard','finances','finance-settings','personal','tools','settings']
 export default function App(){
   const view=useUIStore(s=>s.view),toast=useUIStore(s=>s.toast),clearToast=useUIStore(s=>s.clearToast),settings=useSettingsStore(),Page=pages[view]
   useEffect(()=>{const apply=()=>{document.documentElement.lang=settings.language;const dark=settings.theme==='dark'||(settings.theme==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';document.documentElement.dataset.accent=settings.accent;document.documentElement.dataset.density=settings.density;document.documentElement.classList.toggle('reduce-motion',!settings.animations);document.documentElement.classList.toggle('hide-amounts',settings.hideAmounts);document.documentElement.classList.toggle('parallax-enabled',settings.parallax)};apply();const media=matchMedia('(prefers-color-scheme: dark)');media.addEventListener('change',apply);return()=>media.removeEventListener('change',apply)},[settings.theme,settings.accent,settings.density,settings.animations,settings.hideAmounts,settings.parallax,settings.language])

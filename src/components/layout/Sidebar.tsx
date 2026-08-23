@@ -1,4 +1,4 @@
-import { BarChart3, ChevronLeft, Gift, Heart, LayoutDashboard, RotateCcw, Settings, Sparkles, X } from 'lucide-react'
+import { BarChart3, ChevronLeft, Gift, Heart, LayoutDashboard, RotateCcw, Settings, SlidersHorizontal, Sparkles, X } from 'lucide-react'
 import { modules } from '../../data/modules'
 import { useDashboardStore, useSettingsStore, useUIStore } from '../../store'
 import type { View } from '../../types'
@@ -8,6 +8,7 @@ import { Badge, IconButton, Toggle } from '../ui'
 const navigation: { id: View; label: string; icon: typeof LayoutDashboard; badge?: string }[] = [
   { id: 'dashboard', label: 'Vue d’ensemble', icon: LayoutDashboard },
   { id: 'finances', label: 'Finances', icon: BarChart3 },
+  { id: 'finance-settings', label: 'Paramètres de finance', icon: SlidersHorizontal },
   { id: 'personal', label: 'Vie personnelle', icon: Heart },
   { id: 'tools', label: 'Outils gratuits', icon: Gift, badge: 'INCLUS' },
   { id: 'settings', label: 'Paramètres', icon: Settings },
