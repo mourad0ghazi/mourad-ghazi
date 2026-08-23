@@ -1,0 +1,13 @@
+{
+  "name": "LifeOS — Personal Dashboard",
+  "short_name": "LifeOS",
+  "description": "Votre système personnel local pour organiser votre quotidien et vos finances.",
+  "start_url": "/#/",
+  "display": "standalone",
+  "background_color": "#f3f4f2",
+  "theme_color": "#343a40",
+  "lang": "fr",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
