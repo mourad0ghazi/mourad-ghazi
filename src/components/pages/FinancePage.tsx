@@ -1,17 +1,19 @@
 import { useState } from 'react'
-import { Calculator, CircleDollarSign, Download, FileBarChart, Landmark, PiggyBank, Plus, ReceiptText, TrendingUp, WalletCards } from 'lucide-react'
+import { BrainCircuit, Calculator, CircleDollarSign, Download, FileBarChart, Landmark, PiggyBank, Plus, ReceiptText, TrendingUp, WalletCards } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { monthTransactions, useFinanceStore, useSettingsStore, useUIStore } from '../../store'
 import { currencyFormatOptions } from '../../utils/formatting'
 import { downloadFile, formatCurrency, transactionsToCSV } from '../../utils/helpers'
 import { collectLifeOSReportSnapshot, downloadLifeOSReportPdf, generateLifeOSReport } from '../../utils/reports'
 import { Button, Tabs } from '../ui'
+import { FinanceCoach } from '../finance/FinanceCoach'
 import { BudgetModule, ExpenseChartModule, FinanceSummaryModule, InvestmentsModule, LoanCalculatorModule, SavingsModule, SavingsSimulatorModule, TransactionsModule } from '../modules/finance'
 
 const tabs = [
   { id: 'overview', label: 'Vue d’ensemble', icon: <CircleDollarSign size={15}/> }, { id: 'transactions', label: 'Transactions', icon: <ReceiptText size={15}/> },
   { id: 'budget', label: 'Budget', icon: <WalletCards size={15}/> }, { id: 'goals', label: 'Épargne', icon: <PiggyBank size={15}/> },
   { id: 'simulator', label: 'Simulateurs', icon: <Calculator size={15}/> }, { id: 'investments', label: 'Investissements', icon: <Landmark size={15}/> },
+  { id: 'coach', label: 'Coach IA', icon: <BrainCircuit size={15}/> },
 ]
 export function FinancePage() {
   const [tab, setTab] = useState('overview'); const transactions = useFinanceStore((s) => s.transactions); const setModal = useUIStore((s) => s.setModal); const showToast = useUIStore((s) => s.showToast)
@@ -29,6 +31,7 @@ export function FinancePage() {
       {tab === 'goals' && <div className="two-column-wide"><SavingsModule extended/><SavingsSimulatorModule/></div>}
       {tab === 'simulator' && <div className="simulators-grid"><SavingsSimulatorModule extended/><LoanCalculatorModule extended/></div>}
       {tab === 'investments' && <div className="two-column-wide"><InvestmentsModule extended/><FinanceSummaryModule extended/></div>}
+      {tab === 'coach' && <FinanceCoach/>}
     </div>
   </motion.div>
 }

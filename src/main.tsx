@@ -7,6 +7,7 @@ import './styles/global.css'
 import './styles/enhancements.css'
 import './styles/tool-workspaces.css'
 import './styles/finance-settings.css'
+import './styles/finance-coach.css'
 import './styles/notes-reader.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>)
