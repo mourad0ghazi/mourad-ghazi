@@ -1,0 +1,37 @@
+import { useState } from 'react'
+import { BrainCircuit, Calculator, CircleDollarSign, Download, FileBarChart, Landmark, PiggyBank, Plus, ReceiptText, TrendingUp, WalletCards } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { monthTransactions, useFinanceStore, useSettingsStore, useUIStore } from '../../store'
+import { currencyFormatOptions } from '../../utils/formatting'
+import { downloadFile, formatCurrency, transactionsToCSV } from '../../utils/helpers'
+import { collectLifeOSReportSnapshot, downloadLifeOSReportPdf, generateLifeOSReport } from '../../utils/reports'
+import { Button, Tabs } from '../ui'
+import { FinanceCoach } from '../finance/FinanceCoach'
+import { BudgetModule, ExpenseChartModule, FinanceSummaryModule, InvestmentsModule, LoanCalculatorModule, SavingsModule, SavingsSimulatorModule, TransactionsModule } from '../modules/finance'
+
+const tabs = [
+  { id: 'overview', label: 'Vue d’ensemble', icon: <CircleDollarSign size={15}/> }, { id: 'transactions', label: 'Transactions', icon: <ReceiptText size={15}/> },
+  { id: 'budget', label: 'Budget', icon: <WalletCards size={15}/> }, { id: 'goals', label: 'Épargne', icon: <PiggyBank size={15}/> },
+  { id: 'simulator', label: 'Simulateurs', icon: <Calculator size={15}/> }, { id: 'investments', label: 'Investissements', icon: <Landmark size={15}/> },
+  { id: 'coach', label: 'Coach IA', icon: <BrainCircuit size={15}/> },
+]
+export function FinancePage() {
+  const [tab, setTab] = useState('overview'); const transactions = useFinanceStore((s) => s.transactions); const setModal = useUIStore((s) => s.setModal); const showToast = useUIStore((s) => s.showToast)
+  const settings = useSettingsStore(), money = (value:number) => formatCurrency(value, settings.currency, settings.hideAmounts, currencyFormatOptions(settings))
+  const current = monthTransactions(transactions), income = current.filter((t) => t.type === 'income').reduce((s,t)=>s+t.amount,0), expense = current.filter((t) => t.type === 'expense').reduce((s,t)=>s+t.amount,0)
+  const downloadReport = () => { const today=new Date(), to=today.toISOString().slice(0,10), from=`${to.slice(0,7)}-01`;downloadLifeOSReportPdf(generateLifeOSReport(collectLifeOSReportSnapshot(),{scope:'financial',from,to,includeDetails:true}));showToast('Rapport financier mensuel téléchargé') }
+  return <motion.div className="page section-page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+    <div className="page-heading"><div><span className="eyebrow"><TrendingUp size={14}/> PILOTAGE FINANCIER</span><h1>Vos finances, en toute clarté.</h1><p>Suivez chaque dirham, planifiez vos objectifs et projetez votre avenir.</p></div><div className="page-actions"><Button variant="secondary" onClick={() => downloadFile('lifeos-transactions.csv', transactionsToCSV(transactions), 'text/csv;charset=utf-8')}><Download size={16}/>Exporter CSV</Button><Button variant="secondary" onClick={downloadReport}><FileBarChart size={16}/>Rapport PDF</Button><Button onClick={() => setModal('transaction')}><Plus size={16}/>Transaction</Button></div></div>
+    <div className="summary-strip"><div><span>Revenus ce mois</span><strong className="success">{money(income)}</strong><small>↑ 8,4% vs mois dernier</small></div><div><span>Dépenses ce mois</span><strong className="danger">{money(expense)}</strong><small>↓ 3,2% vs mois dernier</small></div><div><span>Épargne nette</span><strong>{money(income-expense)}</strong><small>{income ? Math.round((income-expense)/income*100) : 0}% des revenus</small></div><div><span>Patrimoine investi</span><strong>{money(useFinanceStore.getState().investments.reduce((s,i)=>s+i.value,0))}</strong><small>4 classes d’actifs</small></div></div>
+    <Tabs tabs={tabs} value={tab} onChange={setTab}/>
+    <div className="tab-content">
+      {tab === 'overview' && <div className="overview-grid"><FinanceSummaryModule extended/><ExpenseChartModule/><BudgetModule/><SavingsModule/></div>}
+      {tab === 'transactions' && <TransactionsModule extended/>}
+      {tab === 'budget' && <div className="two-column-wide"><BudgetModule extended/><ExpenseChartModule/></div>}
+      {tab === 'goals' && <div className="two-column-wide"><SavingsModule extended/><SavingsSimulatorModule/></div>}
+      {tab === 'simulator' && <div className="simulators-grid"><SavingsSimulatorModule extended/><LoanCalculatorModule extended/></div>}
+      {tab === 'investments' && <div className="two-column-wide"><InvestmentsModule extended/><FinanceSummaryModule extended/></div>}
+      {tab === 'coach' && <FinanceCoach/>}
+    </div>
+  </motion.div>
+}
