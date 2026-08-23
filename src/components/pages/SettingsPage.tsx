@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, Bell, CalendarDays, Check, CircleDollarSign, Databa
 import { motion } from 'framer-motion'
 import { dashboardPresets } from '../../data/dashboardPresets'
 import { modules, type ModuleId } from '../../data/modules'
-import { useDashboardStore, useFinanceStore, usePersonalStore, useSettingsStore, useUIStore } from '../../store'
+import { sortLayout, useDashboardStore, useFinanceStore, usePersonalStore, useSettingsStore, useUIStore } from '../../store'
 import type { Density, Settings, Theme } from '../../types'
 import { queueExcelImportFile } from '../../utils/excelHandoff'
 import { downloadFile, formatCurrency, formatDate, initials } from '../../utils/helpers'
@@ -65,15 +65,16 @@ function DashboardSettings() {
   const setEdit = useDashboardStore((state) => state.setEditMode)
   const reset = useDashboardStore((state) => state.resetLayout)
   const applyPreset = useDashboardStore((state) => state.applyPreset)
+  const activePreset = useDashboardStore((state) => state.activePreset)
   const moveWidget = useDashboardStore((state) => state.moveWidget)
   const layout = useDashboardStore((state) => state.layout)
   const setView = useUIStore((state) => state.setView)
   const showToast = useUIStore((state) => state.showToast)
-  const orderedModules = [...modules].sort((a, b) => layout.findIndex((item) => item.i === a.id) - layout.findIndex((item) => item.i === b.id))
-  const activeCount = Object.values(visible).filter(Boolean).length
+  const readingOrder = sortLayout(layout).map((item) => item.i)
+  const orderedModules = [...modules].sort((a, b) => readingOrder.indexOf(a.id) - readingOrder.indexOf(b.id))
 
   return <SettingsBlock title="Organisation du dashboard" description="Déplacez, redimensionnez ou appliquez l’une des quatre suggestions de personnalisation.">
-    <SettingGroup title="Suggestions de personnalisation"><div className="settings-presets">{dashboardPresets.map((preset) => { const selected = activeCount === preset.modules.length && preset.modules.every((id) => visible[id] !== false); return <button key={preset.id} className={selected ? 'active' : ''} onClick={() => { applyPreset(preset.id); showToast(`Disposition « ${preset.label} » appliquée`) }}><span>{selected ? <Check size={16}/> : <LayoutTemplate size={16}/>}</span><b>{preset.label}</b><small>{preset.description}</small></button> })}</div></SettingGroup>
+    <SettingGroup title="Suggestions complètes · 17 modules"><div className="settings-presets">{dashboardPresets.map((preset) => { const selected = activePreset === preset.id; return <button key={preset.id} className={selected ? 'active' : ''} aria-pressed={selected} onClick={() => { applyPreset(preset.id); showToast(`Disposition « ${preset.label} » appliquée — aucun module masqué`) }}><span>{selected ? <Check size={16}/> : <LayoutTemplate size={16}/>}</span><b>{preset.label}</b><small>{preset.description}</small></button> })}</div></SettingGroup>
     <div className="dashboard-customize-callout"><Move size={23}/><span><b>Déplacer n’importe quelle carte</b><small>Activez le mode puis glissez les cartes et redimensionnez-les depuis leur coin inférieur droit.</small></span><Button onClick={() => { setEdit(true); setView('dashboard') }}><Sparkles size={16}/>Ouvrir la personnalisation</Button></div>
     <ToggleRow label="Mode personnalisation" text="Autoriser le déplacement et le redimensionnement" value={edit} onChange={setEdit}/>
     <div className="settings-modules">{orderedModules.map((item, index) => <div key={item.id}><span><item.icon size={17}/>{item.label}<small>{item.category}</small></span><span className="module-order-actions"><IconButton label={`Monter ${item.label}`} disabled={index === 0} onClick={() => moveWidget(item.id, -1)}><ArrowUp size={13}/></IconButton><IconButton label={`Descendre ${item.label}`} disabled={index === orderedModules.length - 1} onClick={() => moveWidget(item.id, 1)}><ArrowDown size={13}/></IconButton></span><Toggle checked={visible[item.id] !== false} onChange={() => toggle(item.id as ModuleId)} label={`Afficher ${item.label}`}/></div>)}</div>
@@ -100,7 +101,7 @@ function DataSettings() {
         if (data.settings) localStorage.setItem('lifeos:v2:settings', JSON.stringify({ state: data.settings, version: 0 }))
         if (data.finance) localStorage.setItem('lifeos:v2:finance', JSON.stringify({ state: data.finance, version: 0 }))
         if (data.personal) localStorage.setItem('lifeos:v2:personal', JSON.stringify({ state: data.personal, version: 0 }))
-        if (data.dashboard) localStorage.setItem('lifeos:v2:dashboard', JSON.stringify({ state: data.dashboard, version: 0 }))
+        if (data.dashboard) localStorage.setItem('lifeos:v2:dashboard', JSON.stringify({ state: { layout: data.dashboard.layout, visible: data.dashboard.visible, activePreset: data.dashboard.activePreset ?? null }, version: 3 }))
         showToast('Données restaurées')
         setTimeout(() => location.reload(), 700)
       } catch {

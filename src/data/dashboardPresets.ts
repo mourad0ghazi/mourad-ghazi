@@ -9,29 +9,34 @@ export interface DashboardPreset {
   modules: ModuleId[]
 }
 
+/**
+ * Every suggestion deliberately contains every LifeOS module. The order is the
+ * hierarchy: the layout engine turns the first three modules into the opening
+ * row, then creates full two-card rows without leaving grid holes.
+ */
 export const dashboardPresets: DashboardPreset[] = [
   {
     id: 'essential',
-    label: 'Essentiel',
-    description: 'Une vue calme pour voir uniquement les priorités du jour.',
-    modules: ['clock', 'tasks', 'calendar', 'goals', 'notes'],
+    label: 'Équilibre quotidien',
+    description: 'Le quotidien d’abord, avec les 17 modules organisés en vue équilibrée.',
+    modules: ['clock', 'weather', 'pomodoro', 'tasks', 'calendar', 'goals', 'habits', 'notes', 'journal', 'finance', 'expenses', 'transactions', 'budget', 'savings', 'investments', 'simulator', 'loan'],
   },
   {
     id: 'productivity',
-    label: 'Productivité',
-    description: 'Tâches, agenda, habitudes et concentration au premier plan.',
-    modules: ['clock', 'pomodoro', 'tasks', 'calendar', 'habits', 'goals', 'notes', 'journal'],
+    label: 'Focus & organisation',
+    description: 'Actions et routines en priorité, sans masquer les modules financiers.',
+    modules: ['clock', 'pomodoro', 'weather', 'tasks', 'habits', 'calendar', 'goals', 'notes', 'journal', 'finance', 'budget', 'expenses', 'transactions', 'savings', 'investments', 'simulator', 'loan'],
   },
   {
     id: 'finance',
     label: 'Pilotage financier',
-    description: 'Revenus, dépenses, budgets et patrimoine regroupés.',
-    modules: ['clock', 'finance', 'expenses', 'transactions', 'budget', 'savings', 'investments', 'simulator'],
+    description: 'Les indicateurs d’argent en tête, puis tous les outils personnels.',
+    modules: ['clock', 'weather', 'pomodoro', 'finance', 'expenses', 'budget', 'transactions', 'savings', 'investments', 'simulator', 'loan', 'tasks', 'calendar', 'goals', 'habits', 'notes', 'journal'],
   },
   {
     id: 'complete',
-    label: 'Vue complète',
-    description: 'Tous les modules visibles pour un contrôle global de LifeOS.',
-    modules: ['clock', 'weather', 'pomodoro', 'goals', 'finance', 'expenses', 'tasks', 'calendar', 'habits', 'budget', 'savings', 'investments', 'notes', 'journal', 'transactions', 'simulator', 'loan'],
+    label: 'Vue exécutive',
+    description: 'Une lecture panoramique moderne où chacun des 17 modules reste visible.',
+    modules: ['clock', 'weather', 'goals', 'finance', 'tasks', 'expenses', 'calendar', 'budget', 'transactions', 'savings', 'investments', 'habits', 'pomodoro', 'notes', 'journal', 'simulator', 'loan'],
   },
 ]

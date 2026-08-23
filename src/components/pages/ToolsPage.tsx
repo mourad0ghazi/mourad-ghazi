@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { AlertTriangle, Bot, CalendarSync, Check, Cloud, Code2, Download, FileBarChart, FileCheck2, FileSpreadsheet, Gift, Mail, Palette, RefreshCw, ShieldCheck, Smartphone, Sparkles, TableProperties, Upload, Users } from 'lucide-react'
-import { defaultLayout, useDashboardStore, useFinanceStore, usePersonalStore, useSettingsStore, useUIStore } from '../../store'
+import { layoutForModules, useDashboardStore, useFinanceStore, usePersonalStore, useSettingsStore, useUIStore } from '../../store'
 import { modules, type ModuleId } from '../../data/modules'
 import type { ExcelImportPlan, ExcelSheet } from '../../utils/excel'
 import type { WorkbookArchiveInfo } from '../../utils/excelArchive'
@@ -29,7 +29,7 @@ const tools: { id: ToolId; title: string; description: string; icon: typeof Bot;
 ]
 
 function exportAll() {
-  const payload = { exportedAt: new Date().toISOString(), version: 2, settings: useSettingsStore.getState(), finance: useFinanceStore.getState(), personal: usePersonalStore.getState() }
+  const payload = { exportedAt: new Date().toISOString(), version: 3, settings: useSettingsStore.getState(), finance: useFinanceStore.getState(), personal: usePersonalStore.getState(), dashboard: useDashboardStore.getState() }
   downloadFile(`lifeos-backup-${new Date().toISOString().slice(0,10)}.json`, JSON.stringify(payload, null, 2), 'application/json')
 }
 
@@ -54,7 +54,7 @@ function ToolWorkspace({ id }: { id: ToolId }) {
   const date=useDateFormatter(),money=(value:number)=>formatCurrency(value,settings.currency,settings.hideAmounts,currencyFormatOptions(settings))
   const fileRef = useRef<HTMLInputElement>(null); const [family, setFamily] = useState(() => JSON.parse(localStorage.getItem('lifeos:family') ?? '["Mourad"]') as string[]); const [name, setName] = useState('')
   const prediction = useMemo(() => { const expense = transactions.filter((t) => t.type === 'expense').reduce((s,t)=>s+t.amount,0) / 6; const income = transactions.filter((t) => t.type === 'income').reduce((s,t)=>s+t.amount,0) / 6; return Array.from({length:6},(_,i)=>({ month:`M+${i+1}`, balance:Math.round((income-expense)*(i+1)*Math.pow(1.01,i)) })) }, [transactions])
-  const restore = (file?: File) => { if (!file) return; file.text().then((text) => { try { const data=JSON.parse(text); if(data.finance?.transactions) localStorage.setItem('lifeos:v2:finance', JSON.stringify({ state: data.finance, version: 0 })); if(data.personal) localStorage.setItem('lifeos:v2:personal', JSON.stringify({ state:data.personal, version:0 })); showToast('Sauvegarde restaurée — rechargement…'); setTimeout(()=>location.reload(),700) } catch { showToast('Fichier de sauvegarde invalide') } }) }
+  const restore = (file?: File) => { if (!file) return; file.text().then((text) => { try { const data=JSON.parse(text); if(data.settings) localStorage.setItem('lifeos:v2:settings', JSON.stringify({ state:data.settings, version:0 })); if(data.finance?.transactions) localStorage.setItem('lifeos:v2:finance', JSON.stringify({ state: data.finance, version: 0 })); if(data.personal) localStorage.setItem('lifeos:v2:personal', JSON.stringify({ state:data.personal, version:0 })); if(data.dashboard) localStorage.setItem('lifeos:v2:dashboard',JSON.stringify({state:{layout:data.dashboard.layout,visible:data.dashboard.visible,activePreset:data.dashboard.activePreset??null},version:3})); showToast('Sauvegarde restaurée — rechargement…'); setTimeout(()=>location.reload(),700) } catch { showToast('Fichier de sauvegarde invalide') } }) }
   const exportICS = () => { const body=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//LifeOS//FR',...events.flatMap((e)=>['BEGIN:VEVENT',`UID:${e.id}@lifeos`,`DTSTART:${e.date.replaceAll('-','')}T${e.time.replace(':','')}00`,`SUMMARY:${e.title}`,'END:VEVENT']),'END:VCALENDAR'].join('\r\n'); downloadFile('lifeos-calendrier.ics',body,'text/calendar') }
   if (id === 'ai') return <div className="tool-workspace"><p className="workspace-intro">Prévision calculée localement à partir de votre historique. Le modèle extrapole votre épargne moyenne avec une amélioration prudente de 1 % par mois.</p><div className="prediction-summary"><span><small>Solde projeté à 6 mois</small><strong>{money(prediction[5].balance)}</strong></span><Badge tone="success">Tendance positive</Badge></div><div className="workspace-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={prediction}><CartesianGrid vertical={false} stroke="var(--border)"/><XAxis dataKey="month"/><YAxis hide/><Area type="monotone" dataKey="balance" stroke="var(--accent)" fill="var(--accent-soft)"/><Tooltip formatter={(v:number)=>money(v)}/></AreaChart></ResponsiveContainer></div><div className="insight"><Sparkles/><span><b>Conseil personnalisé</b>Automatisez 15 % du prochain revenu freelance pour atteindre votre fonds d’urgence environ un mois plus tôt.</span></div></div>
   if (id === 'reports') return <div className="tool-workspace"><p className="workspace-intro">Générez un rapport financier imprimable ou exportez toutes les lignes dans un format compatible Excel.</p><div className="report-preview"><span><FileBarChart size={32}/></span><div><b>Rapport LifeOS — {date(new Date(),{month:'long',year:'numeric'})}</b><small>{transactions.length} transactions · {usePersonalStore.getState().tasks.length} tâches · {usePersonalStore.getState().goals.length} objectifs</small></div></div><div className="workspace-actions"><Button onClick={()=>window.print()}><FileBarChart size={16}/>Imprimer / Enregistrer en PDF</Button><Button variant="secondary" onClick={()=>downloadFile('rapport-lifeos.csv',transactionsToCSV(transactions),'text/csv;charset=utf-8')}><Download size={16}/>Exporter pour Excel</Button></div></div>
@@ -80,9 +80,7 @@ function mergeRecords<T>(current: T[], incoming: T[], key: (item: T) => string, 
 }
 
 function personalizedLayout(priority: ModuleId[]) {
-  const order=[...new Set<ModuleId>(['clock','weather','pomodoro',...priority,...modules.map((module)=>module.id)])]
-  let x=0,y=0,rowHeight=0
-  return order.map((id)=>defaultLayout.find((item)=>item.i===id)).filter((item):item is NonNullable<typeof item>=>!!item).map((item)=>{if(x+item.w>12){x=0;y+=rowHeight;rowHeight=0}const next={...item,x,y};x+=item.w;rowHeight=Math.max(rowHeight,item.h);return next})
+  return layoutForModules(['clock', 'weather', 'pomodoro', ...priority])
 }
 
 function applyExcelPlan(plan: ExcelImportPlan, mode: ImportMode, adaptDashboard: boolean) {
@@ -101,7 +99,7 @@ function applyExcelPlan(plan: ExcelImportPlan, mode: ImportMode, adaptDashboard:
   usePersonalStore.setState(personalPatch);useFinanceStore.setState(financePatch)
   if(Object.keys(plan.profile).length)useSettingsStore.getState().updateProfile(plan.profile)
   if(Object.keys(plan.settings).length)useSettingsStore.getState().update(plan.settings)
-  if(adaptDashboard){const core=new Set<ModuleId>(['clock','weather','pomodoro']),active=new Set<ModuleId>([...core,...plan.widgets]);const visible=Object.fromEntries(modules.map((module)=>[module.id,active.has(module.id)]));useDashboardStore.setState({visible,layout:personalizedLayout(plan.widgets)})}
+  if(adaptDashboard){const core=new Set<ModuleId>(['clock','weather','pomodoro']),active=new Set<ModuleId>([...core,...plan.widgets]);const visible=Object.fromEntries(modules.map((module)=>[module.id,active.has(module.id)]));useDashboardStore.setState({visible,layout:personalizedLayout(plan.widgets),activePreset:null})}
 }
 
 function downloadExcelTemplate() {
