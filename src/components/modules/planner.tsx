@@ -30,8 +30,11 @@ export function NotesModule({ extended = false }: { extended?: boolean }) {
   const addNote = usePersonalStore((s) => s.addNote)
   const updateNote = usePersonalStore((s) => s.updateNote)
   const removeNote = usePersonalStore((s) => s.removeNote)
-  return <Widget id="notes" title="Notes rapides" icon={<NotebookPen size={18} />} action={<IconButton label="Ajouter une note" onClick={addNote}><Plus size={17} /></IconButton>}>
-    <div className={`notes-list ${extended ? 'notes-grid' : ''}`}>{notes.slice(0, extended ? 20 : 3).map((note) => <article className="note-card" key={note.id}>
+  const [query, setQuery] = useState('')
+  const visibleNotes = notes.filter((note) => !query || `${note.title} ${note.content}`.toLocaleLowerCase('fr').includes(query.toLocaleLowerCase('fr')))
+  return <Widget id="notes" title={extended ? 'Notes & archives Excel' : 'Notes rapides'} icon={<NotebookPen size={18} />} action={<IconButton label="Ajouter une note" onClick={addNote}><Plus size={17} /></IconButton>}>
+    {extended&&<div className="module-toolbar"><Input type="search" value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Rechercher dans les notes et feuilles Excel…" aria-label="Rechercher dans les notes"/><span>{visibleNotes.length} résultat(s)</span></div>}
+    <div className={`notes-list ${extended ? 'notes-grid' : ''}`}>{visibleNotes.slice(0, extended ? 200 : 3).map((note) => <article className="note-card" key={note.id}>
       <input value={note.title} aria-label="Titre de la note" onChange={(e) => updateNote(note.id, { title: e.target.value })} />
       <textarea value={note.content} aria-label="Contenu de la note" onChange={(e) => updateNote(note.id, { content: e.target.value })} rows={extended ? 5 : 2} />
       <footer><span>{note.pinned ? 'Épinglée · ' : ''}{date(note.updatedAt, { day: 'numeric', month: 'short' })}</span><IconButton label="Supprimer la note" onClick={() => removeNote(note.id)}><Trash2 size={13} /></IconButton></footer>

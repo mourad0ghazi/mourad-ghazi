@@ -4,10 +4,18 @@ import type { ModuleId } from '../data/modules'
 
 export type ExcelValue = string | number | boolean | null
 export interface ExcelFormula { cell: string; formula: string; cachedValue: ExcelValue }
-export interface ExcelSheet { name: string; rows: ExcelValue[][]; formulas: ExcelFormula[] }
+export interface ExcelSheet { name: string; rows: ExcelValue[][]; formulas: ExcelFormula[]; rowNumbers?: number[] }
 export interface ExcelWorkbook { sheets: ExcelSheet[]; formulaCount: number }
 export type ImportKind = 'transactions' | 'tasks' | 'events' | 'budgets' | 'savings' | 'investments' | 'goals' | 'habits' | 'notes' | 'journal' | 'profile'
-export interface DetectedTable { kind: ImportKind; label: string; sheet: string; count: number; headerRow: number }
+export interface DetectedTable { kind: ImportKind; label: string; sheet: string; count: number; headerRow: number; deep?: boolean }
+export interface DeepSheetAnalysis {
+  sheet: string
+  rows: number
+  cells: number
+  destination: string
+  inferredRecords: number
+  archiveNotes: number
+}
 export interface ExcelImportPlan {
   workbook: ExcelWorkbook
   detected: DetectedTable[]
@@ -24,6 +32,7 @@ export interface ExcelImportPlan {
   profile: Partial<Profile>
   settings: Partial<Settings>
   widgets: ModuleId[]
+  deepAnalysis: DeepSheetAnalysis[]
   warnings: string[]
   totalRecords: number
 }
@@ -127,13 +136,13 @@ export async function parseExcelFile(file: File): Promise<ExcelWorkbook> {
   const sheetNodes=Array.from(workbook.getElementsByTagName('*')).filter((node)=>node.localName==='sheet')
   const sheets=sheetNodes.map((sheetNode,index)=>{
     const name=sheetNode.getAttribute('name')??`Feuille ${index+1}`,relationId=sheetNode.getAttribute('r:id')??sheetNode.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id')??''
-    const path=relationMap.get(relationId)??`xl/worksheets/sheet${index+1}.xml`,document=read(path),rows:ExcelValue[][]=[],formulas:ExcelFormula[]=[]
+    const path=relationMap.get(relationId)??`xl/worksheets/sheet${index+1}.xml`,document=read(path),rows:ExcelValue[][]=[],formulas:ExcelFormula[]=[],rowNumbers:number[]=[]
     const rowNodes=Array.from(document.getElementsByTagName('*')).filter((node)=>node.localName==='row')
-    for(const rowNode of rowNodes){const row:ExcelValue[]=[];for(const cell of Array.from(rowNode.children).filter((node)=>node.localName==='c')){const ref=cell.getAttribute('r')??'',column=columnIndex(ref);if(column>512)continue;const type=cell.getAttribute('t')??'',raw=direct(cell,'v')?.textContent??'',formula=direct(cell,'f')?.textContent??'';let value:ExcelValue=null
+    for(const rowNode of rowNodes){const row:ExcelValue[]=[];for(const cell of Array.from(rowNode.children).filter((node)=>node.localName==='c')){const ref=cell.getAttribute('r')??'',column=columnIndex(ref);if(column>16_383)continue;const type=cell.getAttribute('t')??'',raw=direct(cell,'v')?.textContent??'',formula=direct(cell,'f')?.textContent??'';let value:ExcelValue=null
       if(type==='s')value=shared[Number(raw)]??'';else if(type==='inlineStr')value=Array.from(cell.getElementsByTagName('*')).filter((node)=>node.localName==='t').map((node)=>node.textContent??'').join('');else if(type==='b')value=raw==='1';else if(type==='str'||type==='e'||type==='d')value=raw;else if(raw!==''){const parsed=Number(raw);value=Number.isFinite(parsed)?parsed:raw;const style=Number(cell.getAttribute('s')??0);if(typeof value==='number'&&isDateFormat(styleFormats[style]??0,customFormats))value=excelDate(value)}
       row[column]=value;if(formula)formulas.push({cell:ref,formula,cachedValue:value})
-    }rows.push(row)}
-    return {name,rows,formulas}
+    }rows.push(row);rowNumbers.push(Math.max(1,Number(rowNode.getAttribute('r'))||rows.length))}
+    return {name,rows,formulas,rowNumbers}
   })
   return {sheets,formulaCount:sheets.reduce((sum,sheet)=>sum+sheet.formulas.length,0)}
 }
@@ -181,8 +190,242 @@ function applyProfileRow(plan: ExcelImportPlan, row: Record<string, ExcelValue>,
   return true
 }
 
+type DeepKind = 'transactions' | 'budgets' | 'tasks' | 'goals' | 'habits' | 'journal' | 'notes'
+type DeepRow = { row: ExcelValue[]; rowNumber: number; values: ExcelValue[]; text: string[] }
+
+const deepLabels: Record<DeepKind, string> = {
+  transactions: 'Finances',
+  budgets: 'Budgets',
+  tasks: 'Tâches / Agenda',
+  goals: 'Objectifs',
+  habits: 'Habitudes',
+  journal: 'Journal',
+  notes: 'Notes',
+}
+const ignoredDeepLabels = new Set([
+  'titre','title','nom','name','description','details','detail','date','jour','heure','horaire','time','statut','status','etat',
+  'priorite','priority','categorie','category','objectif','goal','progression','progres','avancement','contenu','content','note',
+  'lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche','monday','tuesday','wednesday','thursday','friday','saturday','sunday',
+  'janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre',
+  'oui','non','yes','no','fait','termine','en cours','a faire','todo','done','total','sous total',
+])
+
+function meaningfulDeepRows(sheet: ExcelSheet): DeepRow[] {
+  return sheet.rows.flatMap((row, index) => {
+    const values = row.filter((value) => value !== null && value !== undefined && clean(value) !== '')
+    if (!values.length) return []
+    return [{ row, rowNumber: sheet.rowNumbers?.[index] ?? index + 1, values, text: values.filter((value): value is string => typeof value === 'string').map(clean).filter(Boolean) }]
+  })
+}
+
+function classifyDeepSheet(sheet: ExcelSheet, rows: DeepRow[]): DeepKind {
+  const sample = normalize(`${sheet.name} ${rows.slice(0, 60).flatMap((row) => row.text).join(' ')}`)
+  const name = normalize(sheet.name)
+  if (/journal|quotidien|humeur|gratitude|rapport hebdo|bilan hebdo/.test(name) || /journal|humeur|gratitude/.test(sample)) return 'journal'
+  if (/habitude|routine|sport|entrainement|pauses? travail|bien etre|sommeil/.test(name) || /serie quotidienne|streak|habitude/.test(sample)) return 'habits'
+  if (/skill|competence|apprendre|objectif|projet revenu|vision|roadmap/.test(name) || /objectif smart|progression cible|competence a apprendre/.test(sample)) return 'goals'
+  if (/budget|prevision depense|enveloppe/.test(name) || /budget mensuel|montant prevu|plafond/.test(sample)) return 'budgets'
+  if (/finance|depense|revenu|recette|banque|tresorerie|argent|vente/.test(name) || /montant.*(?:depense|revenu)|(?:depense|revenu).*montant|debit.*credit/.test(sample)) return 'transactions'
+  if (/planning|planification|programme|semaine|weekly|hebdo|agenda|calendrier|emploi du temps|plan d action|to do|\b\d{1,2}\s+(?:au\s+)?\d{1,2}\s+(?:janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)/.test(name) || /echeance|priorite|a faire|horaire/.test(sample)) return 'tasks'
+  return 'notes'
+}
+
+function looksLikeDate(value: ExcelValue, dateFormat: Settings['dateFormat']) {
+  if (typeof value !== 'string' || !/^(?:\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})(?:[ T].*)?$/.test(value.trim())) return undefined
+  return asDate(value, '', dateFormat) || undefined
+}
+function looksLikeTime(value: ExcelValue) {
+  if (typeof value === 'number' && value >= 0 && value < 1) return asTime(value)
+  if (typeof value !== 'string' || !/^(?:[01]?\d|2[0-3])[:h][0-5]\d(?:\s*(?:am|pm))?$/i.test(value.trim())) return undefined
+  return asTime(value.replace(/h/i, ':'))
+}
+function deepAmount(row: DeepRow, dateFormat: Settings['dateFormat']) {
+  const explicit = row.values.filter((value) => typeof value === 'string' && /(?:mad|dhs?|€|eur|\$|usd|£|gbp)/i.test(value) && !looksLikeDate(value, dateFormat))
+  const numeric = row.values.filter((value) => (typeof value === 'number' || /^[-+]?\(?[\d\s.,]+\)?$/.test(clean(value))) && !looksLikeDate(value, dateFormat) && !looksLikeTime(value) && !clean(value).includes('%'))
+  const candidate = explicit.at(-1) ?? numeric.at(-1)
+  if (candidate === undefined) return undefined
+  const amount = num(candidate, Number.NaN)
+  return Number.isFinite(amount) && amount !== 0 ? amount : undefined
+}
+function deepCandidates(row: DeepRow, sheetName: string) {
+  return row.text.filter((value) => {
+    const normalized = normalize(value)
+    if (value.length < 3 || value.length > 240 || normalized === normalize(sheetName) || ignoredDeepLabels.has(normalized)) return false
+    if (looksLikeDate(value, 'DD/MM/YYYY') || looksLikeTime(value) || /^[-+]?\d+(?:[.,]\d+)?\s*%?$/.test(value)) return false
+    if (/^(?:mad|eur|usd|dh|dhs|semaine|week)\s*\d*$/i.test(normalized)) return false
+    return true
+  })
+}
+function archiveCell(value: ExcelValue) {
+  if (value === null || value === undefined) return ''
+  return String(value).replace(/\r?\n/g, ' ↵ ').trim()
+}
+function columnNameForArchive(index: number) {
+  let result = ''
+  for (let current = index + 1; current > 0; current = Math.floor((current - 1) / 26)) result = String.fromCharCode((current - 1) % 26 + 65) + result
+  return result
+}
+function splitArchive(content: string, maximum = 24_000) {
+  const chunks: string[] = []
+  let remaining = content
+  while (remaining.length > maximum) {
+    const breakAt = Math.max(remaining.lastIndexOf('\n', maximum), Math.floor(maximum * 0.6))
+    chunks.push(remaining.slice(0, breakAt))
+    remaining = remaining.slice(breakAt).replace(/^\n/, '')
+  }
+  if (remaining) chunks.push(remaining)
+  return chunks
+}
+function archiveSheet(sheet: ExcelSheet, rows: DeepRow[]) {
+  const lines = [
+    `ARCHIVE EXCEL COMPLÈTE — ${sheet.name}`,
+    'Chaque cellule non vide est conservée ci-dessous avec sa coordonnée d’origine.',
+    '',
+  ]
+  for (const { row, rowNumber } of rows) {
+    const cells = row.flatMap((value, column) => {
+      const rendered = archiveCell(value)
+      return rendered ? [`${columnNameForArchive(column)}${rowNumber}: ${rendered}`] : []
+    })
+    if (cells.length) lines.push(cells.join('  |  '))
+  }
+  if (sheet.formulas.length) {
+    lines.push('', 'FORMULES (expression et résultat mémorisé)')
+    for (const formula of sheet.formulas) lines.push(`${formula.cell}: =${formula.formula}  →  ${archiveCell(formula.cachedValue) || 'résultat non enregistré'}`)
+  }
+  return splitArchive(lines.join('\n'))
+}
+
+function deepReadSheet(plan: ExcelImportPlan, sheet: ExcelSheet, dateFormat: Settings['dateFormat'], today: string, widgetSet: Set<ModuleId>) {
+  const rows = meaningfulDeepRows(sheet)
+  if (!rows.length && !sheet.formulas.length) return
+  const kind = classifyDeepSheet(sheet, rows)
+  const before = {
+    transactions: plan.transactions.length,
+    budgets: plan.budgets.length,
+    tasks: plan.tasks.length,
+    events: plan.events.length,
+    goals: plan.goals.length,
+    habits: plan.habits.length,
+    journal: plan.journal.length,
+  }
+  const seen = new Set<string>()
+  const uniqueCandidates = (row: DeepRow) => deepCandidates(row, sheet.name).filter((candidate) => {
+    const key = normalize(candidate)
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  if (kind === 'transactions') {
+    for (const row of rows) {
+      const amount = deepAmount(row, dateFormat)
+      const title = uniqueCandidates(row).sort((first, second) => second.length - first.length)[0]
+      if (amount === undefined || !title) continue
+      if (plan.transactions.length - before.transactions >= 200) break
+      const signature = `${sheet.name} ${row.values.join(' ')}`
+      const normalizedSignature = normalize(signature)
+      const hasDebit = /debit|depense|sortie|achat/.test(normalizedSignature)
+      const hasCredit = /credit|revenu|entree|recette|vente/.test(normalizedSignature)
+      if (!hasDebit && !hasCredit && amount > 0) continue
+      plan.transactions.push({
+        id: uuid(),
+        date: row.values.map((value) => looksLikeDate(value, dateFormat)).find(Boolean) ?? today,
+        title,
+        type: transactionType(signature, amount, hasDebit, hasCredit),
+        category: `Excel · ${sheet.name}`,
+        amount: Math.abs(amount),
+        note: 'Déduit par la lecture profonde',
+      })
+    }
+    widgetSet.add('transactions');widgetSet.add('finance');widgetSet.add('expenses')
+  }
+  if (kind === 'budgets') {
+    for (const row of rows) {
+      const planned = deepAmount(row, dateFormat)
+      const category = uniqueCandidates(row).sort((first, second) => second.length - first.length)[0]
+      if (planned === undefined || !category) continue
+      if (plan.budgets.length - before.budgets >= 100) break
+      plan.budgets.push({ id: uuid(), category, planned: Math.abs(planned), color: colors[plan.budgets.length % colors.length] })
+    }
+    widgetSet.add('budget');widgetSet.add('finance')
+  }
+  if (kind === 'tasks') {
+    for (const row of rows) {
+      const date = row.values.map((value) => looksLikeDate(value, dateFormat)).find(Boolean)
+      const time = row.values.map(looksLikeTime).find(Boolean)
+      for (const title of uniqueCandidates(row)) {
+        if (plan.tasks.length + plan.events.length - before.tasks - before.events >= 200) break
+        if (date && time) plan.events.push({ id: uuid(), title, date, time, color: '#596168' })
+        else plan.tasks.push({ id: uuid(), title, status: taskStatus(row.values.join(' ')), priority: priority(row.values.join(' ')), dueDate: date ?? today, category: `Excel · ${sheet.name}`, tags: ['import-profond'], subtasks: [] })
+      }
+      if (plan.tasks.length + plan.events.length - before.tasks - before.events >= 200) break
+    }
+    widgetSet.add('tasks')
+    if (plan.events.length) widgetSet.add('calendar')
+  }
+  if (kind === 'goals') {
+    for (const row of rows) for (const title of uniqueCandidates(row)) {
+      if (plan.goals.length - before.goals >= 120) break
+      const progressValue = row.values.find((value) => typeof value === 'string' && value.includes('%'))
+      const deadline = row.values.map((value) => looksLikeDate(value, dateFormat)).find(Boolean)
+      plan.goals.push({ id: uuid(), title, progress: progressValue === undefined ? 0 : percent(progressValue), deadline: deadline ?? new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10), category: `Excel · ${sheet.name}`, milestones: [] })
+    }
+    widgetSet.add('goals')
+  }
+  if (kind === 'habits') {
+    for (const row of rows) for (const name of uniqueCandidates(row)) {
+      if (plan.habits.length - before.habits >= 80) break
+      plan.habits.push({ id: uuid(), name, icon: '◇', streak: 0, bestStreak: 0, done: {}, missed: {} })
+    }
+    if (!seen.size) plan.habits.push({ id: uuid(), name: sheet.name, icon: '◇', streak: 0, bestStreak: 0, done: {}, missed: {} })
+    widgetSet.add('habits')
+  }
+  if (kind === 'journal') {
+    for (const row of rows) {
+      const content = uniqueCandidates(row).join(' · ')
+      if (!content) continue
+      if (plan.journal.length - before.journal >= 120) break
+      const date = row.values.map((value) => looksLikeDate(value, dateFormat)).find(Boolean) ?? today
+      plan.journal.push({ id: uuid(), date, content, mood: 3 })
+    }
+    widgetSet.add('journal')
+  }
+
+  const inferredRecords =
+    plan.transactions.length - before.transactions +
+    plan.budgets.length - before.budgets +
+    plan.tasks.length - before.tasks +
+    plan.events.length - before.events +
+    plan.goals.length - before.goals +
+    plan.habits.length - before.habits +
+    plan.journal.length - before.journal
+  const archive = archiveSheet(sheet, rows)
+  const now = new Date().toISOString()
+  archive.forEach((content, index) => plan.notes.push({
+    id: uuid(),
+    title: `Excel · ${sheet.name}${archive.length > 1 ? ` (${index + 1}/${archive.length})` : ''}`,
+    content,
+    updatedAt: now,
+    pinned: false,
+  }))
+  widgetSet.add('notes')
+  const cells = rows.reduce((total, row) => total + row.values.length, 0) + sheet.formulas.filter((formula) => formula.cachedValue === null || formula.cachedValue === '').length
+  plan.deepAnalysis.push({
+    sheet: sheet.name,
+    rows: rows.length,
+    cells,
+    destination: `${deepLabels[kind]} + archive Notes`,
+    inferredRecords,
+    archiveNotes: archive.length,
+  })
+  const count = inferredRecords + archive.length
+  plan.detected.push({ kind, label: `Lecture profonde · ${deepLabels[kind]}`, sheet: sheet.name, count, headerRow: 0, deep: true })
+  plan.totalRecords += count
+}
+
 export function buildExcelImportPlan(workbook: ExcelWorkbook): ExcelImportPlan {
-  const plan:ExcelImportPlan={workbook,detected:[],transactions:[],tasks:[],events:[],budgets:[],savingsGoals:[],investments:[],goals:[],habits:[],notes:[],journal:[],profile:{},settings:{},widgets:[],warnings:[],totalRecords:0}
+  const plan:ExcelImportPlan={workbook,detected:[],transactions:[],tasks:[],events:[],budgets:[],savingsGoals:[],investments:[],goals:[],habits:[],notes:[],journal:[],profile:{},settings:{},widgets:[],deepAnalysis:[],warnings:[],totalRecords:0}
   const widgetSet=new Set<ModuleId>(),today=new Date().toISOString().slice(0,10),located=locateTables(workbook)
   let dateFormat:Settings['dateFormat']='DD/MM/YYYY'
   for(const table of located.filter((item)=>item.definition.kind==='profile'))for(const row of records(table))if(['format date','format de date','date format','ordre des dates'].includes(normalize(row.field)))dateFormat=importedDateFormat(row.value)??dateFormat
@@ -238,10 +481,12 @@ export function buildExcelImportPlan(workbook: ExcelWorkbook): ExcelImportPlan {
     plan.detected.push({kind:table.definition.kind,label:labels[table.definition.kind],sheet:table.sheet.name,count:current,headerRow:table.headerRow+1})
     plan.totalRecords+=current
   }
+  const strictlyMapped = new Set(plan.detected.filter((item) => item.count > 0).map((item) => item.sheet))
+  for (const sheet of workbook.sheets) if (!strictlyMapped.has(sheet.name)) deepReadSheet(plan, sheet, dateFormat, today, widgetSet)
   plan.widgets=[...widgetSet]
-  if(!plan.detected.length)plan.warnings.push('Aucun tableau reconnu. Utilisez la première ligne pour nommer clairement les colonnes ou téléchargez le modèle LifeOS.')
-  if(workbook.formulaCount)plan.warnings.push(`${workbook.formulaCount} formule(s) détectée(s). LifeOS lit leur résultat enregistré sans exécuter de macro ni de formule.`)
-  workbook.sheets.filter((sheet)=>sheet.rows.length&&!plan.detected.some((item)=>item.sheet===sheet.name)).forEach((sheet)=>plan.warnings.push(`Feuille « ${sheet.name} » lue mais non associée à un module.`))
+  const emptySheets=workbook.sheets.filter((sheet)=>!meaningfulDeepRows(sheet).length&&!sheet.formulas.length)
+  if(emptySheets.length)plan.warnings.push(`${emptySheets.length} feuille(s) vide(s) ignorée(s) : ${emptySheets.map((sheet)=>sheet.name).join(', ')}.`)
+  if(workbook.formulaCount)plan.warnings.push(`${workbook.formulaCount} formule(s) détectée(s). LifeOS conserve leur expression et lit leur résultat enregistré sans exécuter de macro ni de formule.`)
   return plan
 }
 
