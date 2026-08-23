@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, CheckCircle2, ChevronRight, Columns3, Download, Flame, ListChecks, NotebookPen, Plus, Sparkles, Target, Trash2 } from 'lucide-react'
-import { Badge, Button, CheckButton, IconButton, Input, Progress, Widget } from '../ui'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { ArrowDown, ArrowUp, BookOpen, CheckCircle2, ChevronRight, Columns3, Download, Flame, ListChecks, Maximize2, NotebookPen, Pencil, Plus, Sparkles, Target, Trash2 } from 'lucide-react'
+import { Badge, Button, CheckButton, IconButton, Input, Modal, Progress, Widget } from '../ui'
 import { usePersonalStore, useSettingsStore, useUIStore } from '../../store'
 import { daysUntil, downloadFile } from '../../utils/helpers'
 import { useDateFormatter } from '../../utils/formatting'
@@ -30,16 +31,104 @@ export function NotesModule({ extended = false }: { extended?: boolean }) {
   const addNote = usePersonalStore((s) => s.addNote)
   const updateNote = usePersonalStore((s) => s.updateNote)
   const removeNote = usePersonalStore((s) => s.removeNote)
+  const readingProgress = usePersonalStore((s) => s.noteReadingProgress)
+  const setReadingProgress = usePersonalStore((s) => s.setNoteReadingProgress)
   const [query, setQuery] = useState('')
+  const [visibleLimit, setVisibleLimit] = useState(60)
+  const [readerId, setReaderId] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const readerContentRef = useRef<HTMLDivElement | HTMLTextAreaElement | null>(null)
+  const activePositions = useRef<Record<string, { scrollTop: number; cursor: number }>>({})
+  const pageScroll = useRef(0)
   const visibleNotes = notes.filter((note) => !query || `${note.title} ${note.content}`.toLocaleLowerCase('fr').includes(query.toLocaleLowerCase('fr')))
-  return <Widget id="notes" title={extended ? 'Notes & archives Excel' : 'Notes rapides'} icon={<NotebookPen size={18} />} action={<IconButton label="Ajouter une note" onClick={addNote}><Plus size={17} /></IconButton>}>
+  const selectedNote = notes.find((note) => note.id === readerId)
+  const readerNotes = visibleNotes.length ? visibleNotes : notes
+  const selectedIndex = selectedNote ? readerNotes.findIndex((note) => note.id === selectedNote.id) : -1
+
+  const recordPosition = () => {
+    if (!readerId || !readerContentRef.current) return
+    const node = readerContentRef.current
+    activePositions.current[readerId] = {
+      scrollTop: node.scrollTop,
+      cursor: node instanceof HTMLTextAreaElement ? node.selectionStart : (activePositions.current[readerId]?.cursor ?? 0),
+    }
+  }
+  const savePosition = (id = readerId) => {
+    if (!id) return
+    if (id === readerId) recordPosition()
+    setReadingProgress(id, activePositions.current[id] ?? readingProgress[id] ?? { scrollTop: 0, cursor: 0 })
+  }
+  const openReader = (id: string) => {
+    pageScroll.current = window.scrollY
+    activePositions.current[id] = readingProgress[id] ?? { scrollTop: 0, cursor: 0 }
+    setEditing(false)
+    setReaderId(id)
+  }
+  const closeReader = () => {
+    savePosition()
+    setEditing(false)
+    setReaderId(null)
+    requestAnimationFrame(() => window.scrollTo({ top: pageScroll.current, behavior: 'auto' }))
+  }
+  const moveReader = (direction: number) => {
+    if (!readerNotes.length) return
+    savePosition()
+    const index = selectedIndex < 0 ? 0 : (selectedIndex + direction + readerNotes.length) % readerNotes.length
+    const nextId = readerNotes[index].id
+    activePositions.current[nextId] = readingProgress[nextId] ?? { scrollTop: 0, cursor: 0 }
+    setEditing(false)
+    setReaderId(nextId)
+  }
+
+  useEffect(() => { setVisibleLimit(60) }, [query])
+
+  useEffect(() => {
+    if (!readerId) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = previousOverflow }
+  }, [readerId])
+
+  useEffect(() => {
+    if (!readerId) return
+    const frame = requestAnimationFrame(() => {
+      const node = readerContentRef.current
+      const progress = activePositions.current[readerId] ?? readingProgress[readerId]
+      if (!node || !progress) return
+      node.scrollTop = progress.scrollTop
+      if (node instanceof HTMLTextAreaElement) node.setSelectionRange(Math.min(progress.cursor, node.value.length), Math.min(progress.cursor, node.value.length))
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [readerId, editing])
+
+  const reader = selectedNote && <Modal open title={`Lecture de note${selectedIndex >= 0 ? ` · ${selectedIndex + 1} sur ${readerNotes.length}` : ''}`} onClose={closeReader} width="960px">
+    <section className="note-reader">
+      <header className="note-reader-heading">
+        <div><Badge tone={readingProgress[selectedNote.id]?.scrollTop ? 'info' : 'neutral'}><BookOpen size={12}/>{readingProgress[selectedNote.id]?.scrollTop ? 'REPRISE AUTOMATIQUE' : 'MODE LECTURE'}</Badge><span>{selectedNote.pinned ? 'Épinglée · ' : ''}Mise à jour {date(selectedNote.updatedAt, { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
+        {editing
+          ? <Input value={selectedNote.title} aria-label="Titre de la note agrandie" onChange={(event) => updateNote(selectedNote.id, { title: event.target.value })}/>
+          : <h2>{selectedNote.title || 'Note sans titre'}</h2>}
+      </header>
+      {editing
+        ? <textarea ref={(node) => { readerContentRef.current = node }} className="note-reader-document editing" value={selectedNote.content} aria-label="Contenu complet de la note" onChange={(event) => updateNote(selectedNote.id, { content: event.target.value })} onScroll={recordPosition} onSelect={recordPosition}/>
+        : <div ref={(node) => { readerContentRef.current = node }} className="note-reader-document" role="document" tabIndex={0} onScroll={recordPosition}>{selectedNote.content || <span className="note-reader-empty">Cette note est vide. Passez en mode modification pour écrire.</span>}</div>}
+      <footer className="note-reader-footer">
+        <span><b>{selectedNote.content.trim().split(/\s+/).filter(Boolean).length} mots · {selectedNote.content.length.toLocaleString('fr-FR')} caractères</b><small>Votre position de lecture est mémorisée lorsque vous fermez la note.</small></span>
+        <div className="note-reader-navigation"><IconButton label="Note précédente" disabled={readerNotes.length < 2} onClick={() => moveReader(-1)}><ChevronRight size={17} style={{ transform: 'rotate(180deg)' }}/></IconButton><span>{selectedIndex >= 0 ? selectedIndex + 1 : 1}/{readerNotes.length}</span><IconButton label="Note suivante" disabled={readerNotes.length < 2} onClick={() => moveReader(1)}><ChevronRight size={17}/></IconButton></div>
+        <Button variant="secondary" onClick={() => { recordPosition(); setEditing((value) => !value) }}>{editing ? <><BookOpen size={15}/>Revenir à la lecture</> : <><Pencil size={15}/>Modifier</>}</Button>
+        <Button onClick={closeReader}>Fermer et revenir aux notes</Button>
+      </footer>
+    </section>
+  </Modal>
+
+  return <><Widget id="notes" title={extended ? 'Notes & archives Excel' : 'Notes rapides'} icon={<NotebookPen size={18} />} action={<IconButton label="Ajouter une note" onClick={addNote}><Plus size={17} /></IconButton>}>
     {extended&&<div className="module-toolbar"><Input type="search" value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Rechercher dans les notes et feuilles Excel…" aria-label="Rechercher dans les notes"/><span>{visibleNotes.length} résultat(s)</span></div>}
-    <div className={`notes-list ${extended ? 'notes-grid' : ''}`}>{visibleNotes.slice(0, extended ? 200 : 3).map((note) => <article className="note-card" key={note.id}>
-      <input value={note.title} aria-label="Titre de la note" onChange={(e) => updateNote(note.id, { title: e.target.value })} />
-      <textarea value={note.content} aria-label="Contenu de la note" onChange={(e) => updateNote(note.id, { content: e.target.value })} rows={extended ? 5 : 2} />
-      <footer><span>{note.pinned ? 'Épinglée · ' : ''}{date(note.updatedAt, { day: 'numeric', month: 'short' })}</span><IconButton label="Supprimer la note" onClick={() => removeNote(note.id)}><Trash2 size={13} /></IconButton></footer>
+    <div className={`notes-list ${extended ? 'notes-grid' : ''}`}>{visibleNotes.slice(0, extended ? visibleLimit : 3).map((note) => <article className={`note-card ${extended ? 'note-card-expandable' : ''}`} key={note.id}>
+      {extended ? <button className="note-card-preview" onClick={() => openReader(note.id)} aria-label={`Lire la note ${note.title}`}><span><strong>{note.title || 'Note sans titre'}</strong><Maximize2 size={14}/></span><p>{note.content || 'Note vide — cliquez pour l’ouvrir et écrire.'}</p><em><BookOpen size={13}/>Cliquer pour lire en grand</em></button> : <><input value={note.title} aria-label="Titre de la note" onChange={(e) => updateNote(note.id, { title: e.target.value })}/><textarea value={note.content} aria-label="Contenu de la note" onChange={(e) => updateNote(note.id, { content: e.target.value })} rows={2}/></>}
+      <footer><span>{note.pinned ? 'Épinglée · ' : ''}{date(note.updatedAt, { day: 'numeric', month: 'short' })}</span><div>{!extended&&<IconButton label="Lire la note en grand" onClick={() => openReader(note.id)}><Maximize2 size={13}/></IconButton>}<IconButton label="Supprimer la note" onClick={() => removeNote(note.id)}><Trash2 size={13}/></IconButton></div></footer>
     </article>)}</div>
-  </Widget>
+    {extended&&visibleLimit<visibleNotes.length&&<div className="notes-load-more"><span>{Math.min(visibleLimit, visibleNotes.length)} notes affichées sur {visibleNotes.length}</span><Button variant="secondary" onClick={() => setVisibleLimit((limit) => limit + 60)}>Afficher 60 notes de plus</Button></div>}
+  </Widget>{reader && createPortal(reader, document.body)}</>
 }
 
 const week = Array.from({ length: 7 }, (_, i) => { const date = new Date(); date.setDate(date.getDate() - 6 + i); return date.toISOString().slice(0, 10) })
