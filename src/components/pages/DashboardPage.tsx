@@ -1,11 +1,12 @@
 import { motion } from 'framer-motion'
-import { ArrowDown, ArrowUp, Check, CloudSun, FileSpreadsheet, Flame, Gift, LayoutTemplate, Move, Pencil, Sparkles, Wallet, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, CloudSun, FileBarChart, FileSpreadsheet, Flame, Gift, LayoutTemplate, Move, Pencil, Sparkles, Wallet, X } from 'lucide-react'
 import { Responsive, WidthProvider, type Layout } from 'react-grid-layout'
 import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import { layoutForColumns, monthTransactions, sortLayout, useDashboardStore, useFinanceStore, usePersonalStore, useSettingsStore, useUIStore } from '../../store'
 import { dashboardPresets } from '../../data/dashboardPresets'
 import { modules, type ModuleId } from '../../data/modules'
 import { formatCurrency } from '../../utils/helpers'
+import { collectLifeOSReportSnapshot, downloadLifeOSReportPdf, generateLifeOSReport } from '../../utils/reports'
 import { useDateFormatter } from '../../utils/formatting'
 import { Badge, Button, IconButton } from '../ui'
 import { CalendarModule, ClockModule, PomodoroModule, WeatherModule } from '../modules/personal'
@@ -87,6 +88,7 @@ export function DashboardPage() {
     }
   }, [layout, visible])
   const activeCount = Object.values(visible).filter(Boolean).length
+  const downloadReport = () => { const to=new Date().toISOString().slice(0,10), from=`${to.slice(0,4)}-01-01`;downloadLifeOSReportPdf(generateLifeOSReport(collectLifeOSReportSnapshot(),{scope:'complete',from,to,includeDetails:true}));showToast('Rapport LifeOS complet téléchargé') }
 
   return <motion.div className="page dashboard-page" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
     <section className="welcome-banner">
@@ -95,7 +97,7 @@ export function DashboardPage() {
       <div className="welcome-stats"><div><span className="stat-icon"><Wallet size={18}/></span><span><small>Solde ce mois</small><b>{money(income - expense)}</b></span><em>Mis à jour</em></div><div><span className="stat-icon"><Pencil size={18}/></span><span><small>Tâches actives</small><b>{active} tâches</b></span><em>{tasks.filter((task) => task.status === 'done').length} terminées</em></div><div><span className="stat-icon"><Flame size={18}/></span><span><small>Meilleure série</small><b>{streak} jours</b></span><em>Habitudes</em></div><button className="weather-chip"><CloudSun size={28}/><span><b>24°</b><small>{settings.profile.city} · Clair</small></span></button></div>
     </section>
 
-    <div className="dashboard-toolbar"><div><h2>Votre espace</h2><p>{activeCount} modules actifs · Déplacement libre, dimensions ajustables sur grand écran</p></div><Button variant={editMode ? 'primary' : 'secondary'} onClick={() => setEditMode(!editMode)}>{editMode ? <X size={16}/> : <Pencil size={16}/>} {editMode ? 'Terminer' : 'Personnaliser'}</Button></div>
+    <div className="dashboard-toolbar"><div><h2>Votre espace</h2><p>{activeCount} modules actifs · Déplacement libre, dimensions ajustables sur grand écran</p></div><div className="page-actions"><Button variant="secondary" onClick={downloadReport}><FileBarChart size={16}/>Rapport PDF</Button><Button variant={editMode ? 'primary' : 'secondary'} onClick={() => setEditMode(!editMode)}>{editMode ? <X size={16}/> : <Pencil size={16}/>} {editMode ? 'Terminer' : 'Personnaliser'}</Button></div></div>
 
     {editMode && <motion.section className="customization-studio" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
       <header><span><Move size={18}/><span><b>Mode personnalisation actif</b><small>Saisissez la poignée du titre pour déplacer une carte. Sur grand écran, agrandissez-la depuis son coin inférieur droit.</small></span></span><button onClick={() => setEditMode(false)} aria-label="Fermer la personnalisation"><X size={17}/></button></header>

@@ -5,6 +5,7 @@ import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import './styles/global.css'
 import './styles/enhancements.css'
+import './styles/tool-workspaces.css'
 import './styles/finance-settings.css'
 import './styles/notes-reader.css'
 

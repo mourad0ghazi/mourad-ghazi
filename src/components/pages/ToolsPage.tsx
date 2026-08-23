@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { AlertTriangle, Bot, CalendarSync, Check, Cloud, Code2, Download, FileBarChart, FileCheck2, FileSpreadsheet, Gift, Mail, Palette, RefreshCw, ShieldCheck, Smartphone, Sparkles, TableProperties, Upload, Users } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, BellRing, Bot, CalendarSync, Check, Cloud, Code2, Download, FileBarChart, FileCheck2, FileJson, FileSpreadsheet, Gift, Mail, Palette, Printer, RefreshCw, Send, ShieldCheck, Smartphone, Sparkles, TableProperties, Upload, Users } from 'lucide-react'
 import { layoutForModules, useDashboardStore, useFinancePlanningStore, useFinanceStore, usePersonalStore, useSettingsStore, useUIStore } from '../../store'
 import { modules, type ModuleId } from '../../data/modules'
 import type { ExcelImportPlan, ExcelSheet } from '../../utils/excel'
@@ -9,8 +9,10 @@ import type { WorkbookArchiveInfo } from '../../utils/excelArchive'
 import { getWorkbookArchiveInfo, loadWorkbookArchive, saveWorkbookArchive } from '../../utils/excelArchive'
 import { takeQueuedExcelFile } from '../../utils/excelHandoff'
 import { currencyFormatOptions, useDateFormatter } from '../../utils/formatting'
-import { downloadFile, formatCurrency, transactionsToCSV } from '../../utils/helpers'
-import { Badge, Button, Input, Modal, Progress } from '../ui'
+import { downloadFile, formatCurrency } from '../../utils/helpers'
+import { buildEmailNotificationMessage, getEmailPreparationHistory, prepareEmailNotification, prepareReportEmail } from '../../utils/emailNotifications'
+import { collectLifeOSReportSnapshot, downloadLifeOSReportPdf, downloadReportBlob, generateLifeOSReport, printLifeOSReport, type ReportScope } from '../../utils/reports'
+import { Badge, Button, Input, Progress, Select } from '../ui'
 
 type ToolId = 'ai' | 'reports' | 'bank' | 'cloud' | 'family' | 'integrations' | 'offline' | 'themes' | 'api' | 'automation' | 'vault' | 'support'
 const tools: { id: ToolId; title: string; description: string; icon: typeof Bot; tag: string }[] = [
@@ -18,12 +20,12 @@ const tools: { id: ToolId; title: string; description: string; icon: typeof Bot;
   { id: 'reports', title: 'Rapports PDF & CSV', description: 'Bilans complets prêts à imprimer ou exporter.', icon: FileBarChart, tag: 'Exports' },
   { id: 'bank', title: 'Import Excel intelligent', description: 'Analyse vos feuilles et adapte automatiquement les modules LifeOS.', icon: FileSpreadsheet, tag: 'XLSX + CSV' },
   { id: 'cloud', title: 'Sauvegarde portable', description: 'Téléchargez et restaurez toutes vos données LifeOS.', icon: Cloud, tag: 'Sans serveur' },
-  { id: 'family', title: 'Espace famille', description: 'Créez des profils et répartissez les objectifs communs.', icon: Users, tag: 'Multi-profils' },
+  { id: 'family', title: 'Espace famille', description: 'Créez et conservez des profils familiaux sur cet appareil.', icon: Users, tag: 'Multi-profils' },
   { id: 'integrations', title: 'Calendriers externes', description: 'Exportez vos événements vers Google, Outlook ou Apple.', icon: CalendarSync, tag: 'Format ICS' },
   { id: 'offline', title: 'Mode hors connexion', description: 'Continuez à consulter vos données sans réseau.', icon: Smartphone, tag: 'PWA' },
   { id: 'themes', title: 'Thèmes personnalisés', description: 'Smoke, sauge, ardoise ou terre cuite.', icon: Palette, tag: '4 palettes' },
   { id: 'api', title: 'API développeur locale', description: 'Accédez aux données depuis la console et vos scripts.', icon: Code2, tag: 'JavaScript' },
-  { id: 'automation', title: 'Automatisations', description: 'Rappels de revue, budget et habitudes programmés.', icon: RefreshCw, tag: 'Routines' },
+  { id: 'automation', title: 'Routines locales', description: 'Configurez, sauvegardez et déclenchez vos revues sans code.', icon: RefreshCw, tag: 'No-code' },
   { id: 'vault', title: 'Coffre de données', description: 'Contrôle local, export et effacement transparent.', icon: ShieldCheck, tag: 'Vie privée' },
   { id: 'support', title: 'Centre d’aide', description: 'Guide intégré et diagnostic de votre installation.', icon: Mail, tag: 'Disponible' },
 ]
@@ -33,20 +35,47 @@ function exportAll() {
   downloadFile(`lifeos-backup-${new Date().toISOString().slice(0,10)}.json`, JSON.stringify(payload, null, 2), 'application/json')
 }
 
-export function ToolsPage() {
-  const [selected, setSelected] = useState<ToolId | null>(() => { const requested=sessionStorage.getItem('lifeos:open-tool') as ToolId|null;sessionStorage.removeItem('lifeos:open-tool');return tools.some((tool)=>tool.id===requested)?requested:null })
-  return <motion.div className="page tools-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-    <section className="tools-hero"><div className="tools-hero-copy"><Badge tone="free"><Gift size={12}/> 100 % INCLUS</Badge><h1>Tous les outils.<br/><span>Aucune barrière.</span></h1><p>LifeOS vous appartient. Toutes les fonctionnalités sont disponibles pour vous et tous les utilisateurs, librement et sans aucune barrière.</p><div className="hero-checks"><span><Check/>Accès illimité</span><span><Check/>Données locales</span><span><Check/>Tout est inclus</span></div></div><div className="free-seal"><span><Sparkles size={28}/></span><strong>GRATUIT</strong><small>POUR TOUJOURS</small></div></section>
-    <div className="tools-heading"><div><span className="eyebrow">BOÎTE À OUTILS</span><h2>Choisissez un outil pour l’ouvrir</h2><p>Chaque carte mène directement à un espace pleinement fonctionnel.</p></div><Badge tone="free">12 OUTILS ACTIFS</Badge></div>
-    <div className="tools-grid">{tools.map((tool, index) => <motion.button key={tool.id} className="tool-card" onClick={() => setSelected(tool.id)} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * .04 }} whileHover={{ y: -5 }}><span className="tool-icon"><tool.icon size={22}/></span><span className="free-corner"><Check size={11}/> GRATUIT</span><div><Badge>{tool.tag}</Badge><h3>{tool.title}</h3><p>{tool.description}</p></div><footer><span>Ouvrir l’outil</span><i>→</i></footer></motion.button>)}</div>
-    <section className="ownership"><ShieldCheck size={28}/><div><h3>Vos données restent les vôtres.</h3><p>Aucune donnée financière ou personnelle n’est envoyée à un serveur LifeOS. La persistance s’effectue dans votre navigateur et les exports sont déclenchés par vous.</p></div><Button variant="secondary" onClick={exportAll}><Download size={16}/>Sauvegarder maintenant</Button></section>
-    <ToolModal selected={selected} onClose={() => setSelected(null)}/>
-  </motion.div>
+const toolFromHash = () => {
+  const id = location.hash.replace(/^#\/?/, '').split('/')[1] as ToolId | undefined
+  return tools.some((tool) => tool.id === id) ? id! : null
 }
 
-function ToolModal({ selected, onClose }: { selected: ToolId | null; onClose: () => void }) {
+export function ToolsPage() {
+  const [selected, setSelected] = useState<ToolId | null>(() => {
+    const routed = toolFromHash()
+    const requested = sessionStorage.getItem('lifeos:open-tool') as ToolId | null
+    sessionStorage.removeItem('lifeos:open-tool')
+    return routed ?? (tools.some((tool) => tool.id === requested) ? requested : null)
+  })
+  useEffect(() => {
+    if (selected && !toolFromHash()) history.replaceState(null, '', `#/tools/${selected}`)
+    const syncRoute = () => setSelected(toolFromHash())
+    addEventListener('hashchange', syncRoute)
+    return () => removeEventListener('hashchange', syncRoute)
+  }, [])
+  const openTool = (id: ToolId) => {
+    setSelected(id)
+    location.hash = `#/tools/${id}`
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  const closeTool = () => {
+    setSelected(null)
+    location.hash = '#/tools'
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
   const tool = tools.find((item) => item.id === selected)
-  return <Modal open={!!tool} onClose={onClose} title={tool?.title ?? ''} width="760px">{selected && <ToolWorkspace id={selected}/>}</Modal>
+  if (tool) return <motion.div className="page tools-page tool-detail-page" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+    <nav className="tool-breadcrumb" aria-label="Fil d’Ariane"><button onClick={closeTool}><ArrowLeft size={16}/>Tous les outils</button><span>/</span><b>{tool.title}</b></nav>
+    <header className="tool-page-heading"><span className="tool-page-icon"><tool.icon size={29}/></span><div><Badge tone="free"><Check size={11}/> INCLUS GRATUITEMENT</Badge><h1>{tool.title}</h1><p>{tool.description}</p></div><Button variant="secondary" onClick={closeTool}><ArrowLeft size={15}/>Retour aux outils</Button></header>
+    <main className="tool-page-workspace"><ToolWorkspace id={tool.id}/></main>
+    <section className="tool-switcher"><span><b>Continuer dans la boîte à outils</b><small>Chaque outil possède son adresse et sa page dédiée.</small></span>{tools.filter((item) => item.id !== tool.id).slice(0, 4).map((item) => <button key={item.id} onClick={() => openTool(item.id)}><item.icon size={16}/>{item.title}</button>)}</section>
+  </motion.div>
+  return <motion.div className="page tools-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+    <section className="tools-hero"><div className="tools-hero-copy"><Badge tone="free"><Gift size={12}/> 100 % INCLUS</Badge><h1>Tous les outils.<br/><span>Aucune barrière.</span></h1><p>LifeOS vous appartient. Toutes les fonctionnalités sont disponibles pour vous et tous les utilisateurs, librement et sans aucune barrière.</p><div className="hero-checks"><span><Check/>Accès illimité</span><span><Check/>Données locales</span><span><Check/>Tout est inclus</span></div></div><div className="free-seal"><span><Sparkles size={28}/></span><strong>GRATUIT</strong><small>POUR TOUJOURS</small></div></section>
+    <div className="tools-heading"><div><span className="eyebrow">BOÎTE À OUTILS</span><h2>Choisissez un outil pour ouvrir sa page</h2><p>Les icônes sont alignées à droite et chaque carte mène à une page dédiée pleinement fonctionnelle.</p></div><Badge tone="free">12 OUTILS ACTIFS</Badge></div>
+    <div className="tools-grid">{tools.map((item, index) => <motion.button key={item.id} className="tool-card" onClick={() => openTool(item.id)} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * .04 }} whileHover={{ y: -5 }}><div className="tool-card-copy"><Badge>{item.tag}</Badge><h3>{item.title}</h3><p>{item.description}</p></div><span className="tool-icon"><item.icon size={23}/></span><footer><span><Check size={11}/>Inclus</span><i>Ouvrir →</i></footer></motion.button>)}</div>
+    <section className="ownership"><ShieldCheck size={28}/><div><h3>Vos données restent les vôtres.</h3><p>Aucune donnée financière ou personnelle n’est envoyée à un serveur LifeOS. La persistance s’effectue dans votre navigateur et les exports sont déclenchés par vous.</p></div><Button variant="secondary" onClick={exportAll}><Download size={16}/>Sauvegarder maintenant</Button></section>
+  </motion.div>
 }
 
 function ToolWorkspace({ id }: { id: ToolId }) {
@@ -57,7 +86,7 @@ function ToolWorkspace({ id }: { id: ToolId }) {
   const restore = (file?: File) => { if (!file) return; file.text().then((text) => { try { const data=JSON.parse(text); if(data.settings) localStorage.setItem('lifeos:v2:settings', JSON.stringify({ state:data.settings, version:0 })); if(data.finance?.transactions) localStorage.setItem('lifeos:v2:finance', JSON.stringify({ state: data.finance, version: 0 })); if(data.financePlanning) localStorage.setItem('lifeos:v2:finance-settings', JSON.stringify({ state: data.financePlanning, version: 1 })); if(data.personal) localStorage.setItem('lifeos:v2:personal', JSON.stringify({ state:data.personal, version:0 })); if(data.dashboard) localStorage.setItem('lifeos:v2:dashboard',JSON.stringify({state:{layout:data.dashboard.layout,visible:data.dashboard.visible,activePreset:data.dashboard.activePreset??null},version:3})); showToast('Sauvegarde restaurée — rechargement…'); setTimeout(()=>location.reload(),700) } catch { showToast('Fichier de sauvegarde invalide') } }) }
   const exportICS = () => { const body=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//LifeOS//FR',...events.flatMap((e)=>['BEGIN:VEVENT',`UID:${e.id}@lifeos`,`DTSTART:${e.date.replaceAll('-','')}T${e.time.replace(':','')}00`,`SUMMARY:${e.title}`,'END:VEVENT']),'END:VCALENDAR'].join('\r\n'); downloadFile('lifeos-calendrier.ics',body,'text/calendar') }
   if (id === 'ai') return <div className="tool-workspace"><p className="workspace-intro">Prévision calculée localement à partir de votre historique. Le modèle extrapole votre épargne moyenne avec une amélioration prudente de 1 % par mois.</p><div className="prediction-summary"><span><small>Solde projeté à 6 mois</small><strong>{money(prediction[5].balance)}</strong></span><Badge tone="success">Tendance positive</Badge></div><div className="workspace-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={prediction}><CartesianGrid vertical={false} stroke="var(--border)"/><XAxis dataKey="month"/><YAxis hide/><Area type="monotone" dataKey="balance" stroke="var(--accent)" fill="var(--accent-soft)"/><Tooltip formatter={(v:number)=>money(v)}/></AreaChart></ResponsiveContainer></div><div className="insight"><Sparkles/><span><b>Conseil personnalisé</b>Automatisez 15 % du prochain revenu freelance pour atteindre votre fonds d’urgence environ un mois plus tôt.</span></div></div>
-  if (id === 'reports') return <div className="tool-workspace"><p className="workspace-intro">Générez un rapport financier imprimable ou exportez toutes les lignes dans un format compatible Excel.</p><div className="report-preview"><span><FileBarChart size={32}/></span><div><b>Rapport LifeOS — {date(new Date(),{month:'long',year:'numeric'})}</b><small>{transactions.length} transactions · {usePersonalStore.getState().tasks.length} tâches · {usePersonalStore.getState().goals.length} objectifs</small></div></div><div className="workspace-actions"><Button onClick={()=>window.print()}><FileBarChart size={16}/>Imprimer / Enregistrer en PDF</Button><Button variant="secondary" onClick={()=>downloadFile('rapport-lifeos.csv',transactionsToCSV(transactions),'text/csv;charset=utf-8')}><Download size={16}/>Exporter pour Excel</Button></div></div>
+  if (id === 'reports') return <ReportsWorkspace/>
   if (id === 'bank') return <ExcelImportWorkspace/>
   if (id === 'cloud') return <div className="tool-workspace"><p className="workspace-intro">Une sauvegarde portable contient vos paramètres, finances et données personnelles. Stockez-la où vous voulez.</p><div className="backup-status"><Cloud size={30}/><span><b>Prêt à sauvegarder</b><small>{new Blob([JSON.stringify({transactions})]).size.toLocaleString(settings.language==='en'?'en-GB':'fr-FR')} octets estimés</small></span><Badge tone="success">Local</Badge></div><div className="workspace-actions"><Button onClick={exportAll}><Download size={16}/>Télécharger la sauvegarde</Button><Button variant="secondary" onClick={()=>fileRef.current?.click()}><Upload size={16}/>Restaurer un fichier</Button><input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e)=>restore(e.target.files?.[0])}/></div></div>
   if (id === 'family') return <div className="tool-workspace"><p className="workspace-intro">Créez des profils locaux pour organiser les responsabilités et objectifs communs.</p><div className="family-list">{family.map((member,i)=><div key={`${member}-${i}`}><span>{member.slice(0,1).toUpperCase()}</span><b>{member}</b><small>{i===0?'Administrateur':'Membre'}</small>{i>0&&<button onClick={()=>{const next=family.filter((_,x)=>x!==i);setFamily(next);localStorage.setItem('lifeos:family',JSON.stringify(next))}}>Retirer</button>}</div>)}</div><div className="inline-form"><Input value={name} onChange={(e)=>setName(e.target.value)} placeholder="Nom du membre"/><Button disabled={!name.trim()} onClick={()=>{const next=[...family,name.trim()];setFamily(next);localStorage.setItem('lifeos:family',JSON.stringify(next));setName('')}}><Users size={16}/>Ajouter</Button></div></div>
@@ -65,9 +94,83 @@ function ToolWorkspace({ id }: { id: ToolId }) {
   if (id === 'offline') return <div className="tool-workspace"><p className="workspace-intro">LifeOS mémorise déjà toutes vos données localement. Une fois l’application chargée, vos données restent consultables sans compte.</p><div className="capability-grid"><div><Check/><b>Stockage local</b><span>Actif</span></div><div><Check/><b>Responsive mobile</b><span>Actif</span></div><div><Check/><b>Export portable</b><span>Actif</span></div><div><Check/><b>Installation</b><span>Menu du navigateur</span></div></div><Button onClick={()=>showToast('Dans Chrome : menu ⋮ → Installer LifeOS / Ajouter à l’écran d’accueil')}>Afficher les instructions d’installation</Button></div>
   if (id === 'themes') return <div className="tool-workspace"><p className="workspace-intro">Sélectionnez une ambiance. Le choix est appliqué immédiatement et conservé.</p><div className="theme-picker">{(['smoke','sage','slate','terracotta'] as const).map((accent)=><button key={accent} className={`${accent} ${settings.accent===accent?'active':''}`} onClick={()=>update({accent})}><i/><span><b>{accent==='smoke'?'Fumée':accent==='sage'?'Sauge':accent==='slate'?'Ardoise':'Terre cuite'}</b><small>{settings.accent===accent?'Thème actif':'Appliquer'}</small></span>{settings.accent===accent&&<Check/>}</button>)}</div></div>
   if (id === 'api') return <div className="tool-workspace"><p className="workspace-intro">LifeOS expose ses stores côté navigateur. Utilisez l’export JSON comme API portable ou interrogez localStorage.</p><pre className="code-block"><code>{`// Lire les données financières LifeOS\nconst raw = localStorage.getItem('lifeos:v2:finance')\nconst { state } = JSON.parse(raw)\nconsole.log(state.transactions)\n\n// Écouter les changements\nwindow.addEventListener('storage', (event) => {\n  if (event.key?.startsWith('lifeos:')) sync(event)\n})`}</code></pre><Button onClick={()=>{navigator.clipboard.writeText("localStorage.getItem('lifeos:v2:finance')");showToast('Exemple copié')}}><Code2 size={16}/>Copier l’exemple</Button></div>
-  if (id === 'automation') return <div className="tool-workspace"><p className="workspace-intro">Activez vos routines. Les paramètres sont appliqués par le coach LifeOS lors de vos visites.</p><div className="automation-list">{[['Revue du budget','Chaque vendredi à 18:00'],['Bilan des habitudes','Chaque dimanche à 20:00'],['Plan du jour','Tous les jours à 09:00']].map(([title,time])=><label key={title}><span><RefreshCw/><span><b>{title}</b><small>{time}</small></span></span><input type="checkbox" defaultChecked/></label>)}</div><Button onClick={()=>showToast('Automatisations enregistrées')}><Check size={16}/>Enregistrer les routines</Button></div>
+  if (id === 'automation') return <AutomationWorkspace/>
   if (id === 'vault') return <div className="tool-workspace"><p className="workspace-intro">Transparence complète : vos données vivent dans ce navigateur. Vous pouvez les exporter ou les effacer à tout moment.</p><div className="vault-stats"><div><b>{Object.keys(localStorage).filter((k)=>k.startsWith('lifeos')).length}</b><span>espaces de stockage</span></div><div><b>{transactions.length}</b><span>transactions locales</span></div><div><b>0</b><span>transfert serveur</span></div></div><div className="workspace-actions"><Button onClick={exportAll}><Download size={16}/>Exporter tout</Button><Button variant="danger" onClick={()=>{if(confirm('Effacer toutes les données LifeOS de ce navigateur ?')){Object.keys(localStorage).filter(k=>k.startsWith('lifeos')).forEach(k=>localStorage.removeItem(k));location.reload()}}}>Effacer mes données</Button></div></div>
   return <div className="tool-workspace"><p className="workspace-intro">LifeOS inclut un diagnostic rapide et une aide intégrée, disponibles pour tous.</p><div className="diagnostic"><div><Check/><span><b>Navigateur compatible</b><small>{navigator.userAgent.split(' ').slice(-2).join(' ')}</small></span></div><div><Check/><span><b>Stockage disponible</b><small>localStorage opérationnel</small></span></div><div><Check/><span><b>Application à jour</b><small>LifeOS v2.1</small></span></div></div><a className="button button-primary button-md" href="mailto:mouradghazi002@gmail.com?subject=Aide%20LifeOS"><Mail size={16}/>Contacter le support</a></div>
+}
+
+interface LocalRoutine { id: string; title: string; schedule: string; enabled: boolean }
+const defaultRoutines: LocalRoutine[] = [
+  { id: 'budget', title: 'Revue du budget', schedule: 'Vendredi · 18:00', enabled: true },
+  { id: 'habits', title: 'Bilan des habitudes', schedule: 'Dimanche · 20:00', enabled: true },
+  { id: 'day', title: 'Plan du jour', schedule: 'Tous les jours · 09:00', enabled: true },
+  { id: 'email', title: 'Récapitulatif e-mail', schedule: 'Selon les paramètres de notification', enabled: false },
+]
+function readRoutines() {
+  try {
+    const value = JSON.parse(localStorage.getItem('lifeos:automations') ?? 'null')
+    return Array.isArray(value) ? defaultRoutines.map((routine) => ({ ...routine, ...value.find((item: LocalRoutine) => item.id === routine.id) })) : defaultRoutines
+  } catch { return defaultRoutines }
+}
+function AutomationWorkspace() {
+  const [routines, setRoutines] = useState<LocalRoutine[]>(readRoutines)
+  const [historyCount, setHistoryCount] = useState(() => getEmailPreparationHistory().length)
+  const showToast = useUIStore((state) => state.showToast)
+  const setView = useUIStore((state) => state.setView)
+  const save = () => { localStorage.setItem('lifeos:automations', JSON.stringify(routines));showToast('Routines enregistrées localement') }
+  const runRoutine = (id: string) => {
+    const to = new Date().toISOString().slice(0, 10)
+    if (id === 'budget' || id === 'habits') {
+      const scope: ReportScope = id === 'budget' ? 'financial' : 'personal'
+      downloadLifeOSReportPdf(generateLifeOSReport(collectLifeOSReportSnapshot(), { scope, from: `${to.slice(0, 4)}-01-01`, to, includeDetails: true }))
+      showToast(id === 'budget' ? 'Revue budgétaire téléchargée' : 'Bilan des habitudes téléchargé')
+    } else if (id === 'day') {
+      sessionStorage.setItem('lifeos:personal-tab', 'tasks')
+      setView('personal')
+      showToast('Plan du jour ouvert')
+    } else {
+      const result = prepareEmailNotification(buildEmailNotificationMessage())
+      if (result.ok) { setHistoryCount(getEmailPreparationHistory().length);showToast('Récapitulatif e-mail préparé') } else showToast(result.reason)
+    }
+  }
+  return <div className="tool-workspace automation-workspace"><div className="workspace-intro"><RefreshCw size={19}/><span><b>Routines locales persistantes et exécutables</b><small>Choisissez les routines à conserver, puis déclenchez leur rapport, plan du jour ou récapitulatif e-mail quand vous le souhaitez.</small></span></div><div className="automation-list">{routines.map((routine) => <div className="automation-routine" key={routine.id}><span><RefreshCw/><span><b>{routine.title}</b><small>{routine.schedule}</small></span></span><Button size="sm" variant="ghost" onClick={() => runRoutine(routine.id)}>Exécuter</Button><input aria-label={`Activer ${routine.title}`} type="checkbox" checked={routine.enabled} onChange={(event) => setRoutines((current) => current.map((item) => item.id === routine.id ? { ...item, enabled: event.target.checked } : item))}/></div>)}</div><div className="automation-status"><BellRing size={19}/><span><b>{routines.filter((item) => item.enabled).length} routine(s) active(s)</b><small>{historyCount} récapitulatif(s) e-mail préparé(s) sur cet appareil</small></span></div><div className="workspace-actions"><Button onClick={save}><Check size={16}/>Enregistrer les routines</Button></div></div>
+}
+
+function ReportsWorkspace() {
+  useFinanceStore()
+  usePersonalStore()
+  useFinancePlanningStore()
+  const settings = useSettingsStore()
+  const showToast = useUIStore((state) => state.showToast)
+  const [scope, setScope] = useState<ReportScope>(() => {
+    const requested = sessionStorage.getItem('lifeos:report-scope') as ReportScope | null
+    sessionStorage.removeItem('lifeos:report-scope')
+    return ['complete', 'financial', 'personal', 'planning'].includes(requested ?? '') ? requested! : 'complete'
+  })
+  const [from, setFrom] = useState(() => { const value=new Date();value.setMonth(value.getMonth()-6);return value.toISOString().slice(0,10) })
+  const [to, setTo] = useState(() => new Date().toISOString().slice(0,10))
+  const [includeDetails, setIncludeDetails] = useState(true)
+  const report = generateLifeOSReport(collectLifeOSReportSnapshot(), { scope, from, to, includeDetails })
+  const createPdf = () => { downloadLifeOSReportPdf(report);showToast('Rapport PDF généré et téléchargé') }
+  const print = () => { if (!printLifeOSReport(report)) showToast('Fenêtre bloquée : autorisez les fenêtres contextuelles pour imprimer') }
+  const sendEmail = () => {
+    const summary = `Revenus : ${report.metrics.income.toLocaleString('fr-FR')} ${settings.currency}\nDépenses : ${report.metrics.expenses.toLocaleString('fr-FR')} ${settings.currency}\nSolde : ${report.metrics.balance.toLocaleString('fr-FR')} ${settings.currency}\nTâches actives : ${report.metrics.activeTasks}`
+    const result = prepareReportEmail(report.title, summary)
+    showToast(result.ok ? 'Message préparé dans votre application e-mail' : result.reason)
+  }
+  return <div className="tool-workspace report-builder">
+    <div className="workspace-intro"><FileBarChart size={19}/><span><b>Générateur de rapports opérationnel</b><small>Le PDF est créé directement dans votre navigateur. Le CSV et le JSON contiennent les données de la période choisie.</small></span></div>
+    <section className="report-controls">
+      <label><span>Type de rapport</span><Select value={scope} onChange={(event) => setScope(event.target.value as ReportScope)}><option value="complete">Rapport complet</option><option value="financial">Finances</option><option value="personal">Vie personnelle</option><option value="planning">Planification financière</option></Select></label>
+      <label><span>Du</span><Input type="date" value={from} max={to} onChange={(event) => setFrom(event.target.value)}/></label>
+      <label><span>Au</span><Input type="date" value={to} min={from} onChange={(event) => setTo(event.target.value)}/></label>
+      <label className="report-detail-toggle"><input type="checkbox" checked={includeDetails} onChange={(event) => setIncludeDetails(event.target.checked)}/><span><b>Inclure les détails</b><small>Transactions, tâches, événements et extraits des notes</small></span></label>
+    </section>
+    <div className="report-metrics"><div><span>Revenus</span><strong>{report.metrics.income.toLocaleString('fr-FR')} {settings.currency}</strong></div><div><span>Dépenses</span><strong>{report.metrics.expenses.toLocaleString('fr-FR')} {settings.currency}</strong></div><div><span>Solde</span><strong className={report.metrics.balance < 0 ? 'danger' : 'success'}>{report.metrics.balance.toLocaleString('fr-FR')} {settings.currency}</strong></div><div><span>Éléments</span><strong>{report.metrics.transactionCount + report.metrics.activeTasks + report.metrics.completedTasks + report.metrics.noteCount}</strong></div></div>
+    <section className="generated-report-preview"><header><span><FileCheck2 size={19}/><span><b>{report.title}</b><small>{report.lines.length} lignes préparées · PDF multipage automatique</small></span></span><Badge tone="success">PRÊT</Badge></header><div>{report.lines.slice(0, 28).map((line, index) => line ? <p key={`${line}-${index}`}>{line}</p> : <br key={`space-${index}`}/>)}</div></section>
+    <div className="report-download-actions"><Button onClick={createPdf}><Download size={16}/>Télécharger le PDF</Button><Button variant="secondary" onClick={print}><Printer size={16}/>Imprimer</Button><Button variant="secondary" onClick={() => { downloadReportBlob(`${report.fileBase}.csv`, new Blob([report.csv], { type: 'text/csv;charset=utf-8' }));showToast('Rapport CSV téléchargé') }}><TableProperties size={16}/>CSV / Excel</Button><Button variant="secondary" onClick={() => { downloadReportBlob(`${report.fileBase}.json`, new Blob([report.json], { type: 'application/json' }));showToast('Rapport JSON téléchargé') }}><FileJson size={16}/>JSON</Button><Button variant="ghost" onClick={sendEmail}><Send size={16}/>Préparer le résumé par e-mail</Button></div>
+    <div className="report-email-note"><Mail size={17}/><span><b>Envoi e-mail gratuit et transparent</b><small>LifeOS ouvre votre application e-mail avec le destinataire et le résumé déjà remplis. Téléchargez le PDF puis joignez-le avant de valider l’envoi.</small></span></div>
+  </div>
 }
 
 type ImportMode = 'replace' | 'merge'

@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, Bell, CalendarDays, Check, CircleDollarSign, Database, Download, Eye, EyeOff, FileSpreadsheet, Gift, Keyboard, LayoutGrid, LayoutTemplate, LockKeyhole, Move, Palette, Save, Shield, Sparkles, Trash2, Upload, User, WalletCards } from 'lucide-react'
+import { ArrowDown, ArrowUp, Bell, CalendarDays, Check, CircleDollarSign, Database, Download, Eye, EyeOff, FileSpreadsheet, Gift, Keyboard, LayoutGrid, LayoutTemplate, LockKeyhole, MailCheck, Move, Palette, Save, Send, Shield, Sparkles, Trash2, Upload, User, WalletCards } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { dashboardPresets } from '../../data/dashboardPresets'
 import { modules, type ModuleId } from '../../data/modules'
 import { sortLayout, useDashboardStore, useFinancePlanningStore, useFinanceStore, usePersonalStore, useSettingsStore, useUIStore } from '../../store'
 import type { Density, Settings, Theme } from '../../types'
 import { queueExcelImportFile } from '../../utils/excelHandoff'
+import { buildEmailNotificationMessage, getEmailPreparationHistory, prepareEmailNotification } from '../../utils/emailNotifications'
 import { downloadFile, formatCurrency, formatDate, initials } from '../../utils/helpers'
 import { Badge, Button, IconButton, Input, Select, Toggle } from '../ui'
 
@@ -52,10 +53,31 @@ function SettingsSection({ id }: { id: string }) {
   }
 
   if (id === 'dashboard') return <DashboardSettings/>
-  if (id === 'notifications') return <SettingsBlock title="Notifications & coach" description="Contrôlez les alertes utiles sans bruit inutile."><ToggleRow label="Notifications LifeOS" text="Interrupteur principal" value={state.notifications} onChange={(value) => update({ notifications: value })}/><ToggleRow label="Alertes de budget" text="À 80 % et en cas de dépassement" value={state.budgetAlerts} onChange={(value) => update({ budgetAlerts: value })}/><ToggleRow label="Coach proactif" text="Conseils contextuels selon vos données" value={state.coachMode} onChange={(value) => update({ coachMode: value })}/><div className="form-grid top-space"><Field label="Fréquence du coach"><Select value={state.coachFrequency} onChange={(event) => update({ coachFrequency: event.target.value as Settings['coachFrequency'] })}><option value="never">Jamais</option><option value="daily">Quotidien</option><option value="weekly">Hebdomadaire</option></Select></Field></div></SettingsBlock>
+  if (id === 'notifications') return <SettingsBlock title="Notifications & e-mail" description="Contrôlez les alertes LifeOS et préparez des récapitulatifs dans votre application e-mail."><ToggleRow label="Notifications LifeOS" text="Interrupteur principal des alertes dans l’application" value={state.notifications} onChange={(value) => update({ notifications: value })}/><ToggleRow label="Alertes de budget" text="À 80 % et en cas de dépassement" value={state.budgetAlerts} onChange={(value) => update({ budgetAlerts: value })}/><EmailNotificationSettings/><SettingGroup title="Coach local"><ToggleRow label="Coach proactif" text="Conseils contextuels selon vos données" value={state.coachMode} onChange={(value) => update({ coachMode: value })}/><div className="form-grid top-space"><Field label="Fréquence du coach"><Select value={state.coachFrequency} onChange={(event) => update({ coachFrequency: event.target.value as Settings['coachFrequency'] })}><option value="never">Jamais</option><option value="daily">Quotidien</option><option value="weekly">Hebdomadaire</option></Select></Field></div></SettingGroup></SettingsBlock>
   if (id === 'data') return <DataSettings/>
   if (id === 'security') return <SettingsBlock title="Sécurité locale" description="Protection sur cet appareil, sans transfert de données."><div className="form-grid"><Field label="PIN à 4 chiffres"><Input type="password" inputMode="numeric" maxLength={4} value={state.pin} onChange={(event) => /^\d{0,4}$/.test(event.target.value) && update({ pin: event.target.value })}/></Field></div><ToggleRow label="Masquer les montants" text="Remplace tous les chiffres financiers par •••••" value={state.hideAmounts} onChange={(value) => update({ hideAmounts: value })} icon={state.hideAmounts ? <EyeOff/> : <Eye/>}/><ToggleRow label="Verrouiller le journal" text="Demande le PIN avant la lecture" value={state.journalLocked} onChange={(value) => update({ journalLocked: value })}/><div className="security-note"><LockKeyhole size={18}/><span><b>Protection locale</b>Ce PIN améliore la confidentialité sur un appareil partagé mais ne remplace pas le chiffrement du système.</span></div></SettingsBlock>
-  return <SettingsBlock title="Raccourcis clavier" description="Naviguez plus vite dans LifeOS."><div className="shortcuts-list">{[['⌘ K', 'Recherche globale'], ['⌘ T', 'Nouvelle tâche'], ['⌘ N', 'Nouvelle note'], ['⌘ M', 'Nouvelle transaction'], ['⌘ /', 'Ouvrir l’assistant'], ['⌘ ⇧ L', 'Changer de thème'], ['⌘ ,', 'Paramètres'], ['P', 'Pomodoro'], ['L', 'Verrouiller LifeOS']].map(([keys, label]) => <div key={label}><span>{label}</span><kbd>{keys}</kbd></div>)}</div></SettingsBlock>
+  return <SettingsBlock title="Raccourcis clavier" description="Naviguez plus vite dans LifeOS."><div className="shortcuts-list">{[['⌘ K', 'Recherche globale'], ['⌘ T', 'Nouvelle tâche'], ['⌘ N', 'Nouvelle note'], ['⌘ M', 'Nouvelle transaction'], ['⌘ /', 'Ouvrir l’assistant'], ['⌘ ⇧ L', 'Changer de thème'], ['⌘ ⇧ R', 'Télécharger le rapport complet'], ['⌘ ,', 'Paramètres'], ['P', 'Pomodoro'], ['L', 'Verrouiller LifeOS']].map(([keys, label]) => <div key={label}><span>{label}</span><kbd>{keys}</kbd></div>)}</div></SettingsBlock>
+}
+
+function EmailNotificationSettings() {
+  const state = useSettingsStore()
+  const update = useSettingsStore((store) => store.update)
+  const showToast = useUIStore((store) => store.showToast)
+  const [historyCount, setHistoryCount] = useState(() => getEmailPreparationHistory().length)
+  const prepareTest = () => {
+    const result = prepareEmailNotification(buildEmailNotificationMessage())
+    if (result.ok) {
+      setHistoryCount(getEmailPreparationHistory().length)
+      showToast('Récapitulatif préparé dans votre application e-mail')
+    } else showToast(result.reason)
+  }
+  return <SettingGroup title="Notifications e-mail">
+    <div className="email-settings-intro"><MailCheck size={20}/><span><b>Livraison par votre application e-mail</b><small>LifeOS prépare le destinataire, l’objet et le contenu. Vous gardez le contrôle et validez l’envoi depuis Gmail, Outlook, Apple Mail ou votre application habituelle.</small></span><Badge tone={state.emailNotifications ? 'success' : 'neutral'}>{state.emailNotifications ? 'ACTIVE' : 'INACTIVE'}</Badge></div>
+    <ToggleRow label="Activer les récapitulatifs e-mail" text="Affiche une action e-mail dans le centre de notifications" value={state.emailNotifications} onChange={(value) => update({ emailNotifications: value })}/>
+    <div className="form-grid top-space"><Field label="Adresse de destination"><Input type="email" value={state.emailAddress} placeholder={state.profile.email} onChange={(event) => update({ emailAddress: event.target.value })}/></Field><Field label="Fréquence souhaitée"><Select value={state.emailFrequency} onChange={(event) => update({ emailFrequency: event.target.value as Settings['emailFrequency'] })}><option value="instant">À la demande</option><option value="daily">Récapitulatif quotidien</option><option value="weekly">Récapitulatif hebdomadaire</option></Select></Field></div>
+    <div className="email-alert-options"><ToggleRow label="Budgets" text="Catégories utilisées à 80 % ou plus" value={state.emailBudgetAlerts} onChange={(value) => update({ emailBudgetAlerts: value })}/><ToggleRow label="Tâches" text="Échéances du jour et tâches en retard" value={state.emailTaskReminders} onChange={(value) => update({ emailTaskReminders: value })}/><ToggleRow label="Rapport hebdomadaire" text="Résumé financier et personnel" value={state.emailWeeklyReport} onChange={(value) => update({ emailWeeklyReport: value })}/></div>
+    <div className="email-test-row"><span><b>{historyCount} message(s) préparé(s)</b><small>Aucun envoi silencieux : votre validation finale est toujours requise.</small></span><Button variant="secondary" onClick={prepareTest}><Send size={15}/>Tester l’e-mail</Button></div>
+  </SettingGroup>
 }
 
 function DashboardSettings() {

@@ -37,6 +37,7 @@ import type { FinancePlanningProfile } from '../../store/financePlanningStore'
 import type { Transaction } from '../../types'
 import { currencyFormatOptions } from '../../utils/formatting'
 import { downloadFile, formatCurrency } from '../../utils/helpers'
+import { collectLifeOSReportSnapshot, generateLifeOSReport, printLifeOSReport } from '../../utils/reports'
 import { Badge, Button, Input, Progress, Select } from '../ui'
 
 const steps = [
@@ -183,6 +184,11 @@ export function FinanceSettingsPage() {
     downloadFile(`lifeos-parametres-finance-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2), 'application/json')
     showToast('Analyse financière exportée')
   }
+  const printReport = () => {
+    const to = new Date().toISOString().slice(0, 10)
+    const report = generateLifeOSReport(collectLifeOSReportSnapshot(), { scope: 'planning', from: `${to.slice(0, 4)}-01-01`, to, includeDetails: true })
+    if (!printLifeOSReport(report)) showToast('Fenêtre bloquée : autorisez les fenêtres contextuelles pour imprimer le rapport')
+  }
   const resetProfile = () => {
     if (confirm('Effacer toutes les réponses de vos paramètres de finance ?')) {
       reset()
@@ -193,7 +199,7 @@ export function FinanceSettingsPage() {
   return <motion.div className="page finance-settings-page" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
     <div className="page-heading finance-planning-heading">
       <div><span className="eyebrow"><Sparkles size={14}/> PLANIFICATION PERSONNELLE</span><h1>Paramètres de finance</h1><p>Décrivez votre réalité, mesurez ce que vous consommez et transformez vos projets en trajectoire concrète.</p></div>
-      <div className="page-actions finance-planning-actions"><Badge tone="success"><ShieldCheck size={12}/> PRIVÉ & LOCAL</Badge><Button variant="secondary" onClick={exportProfile}><Download size={16}/>Exporter</Button><Button variant="ghost" onClick={() => window.print()}><Printer size={16}/>Imprimer</Button></div>
+      <div className="page-actions finance-planning-actions"><Badge tone="success"><ShieldCheck size={12}/> PRIVÉ & LOCAL</Badge><Button variant="secondary" onClick={exportProfile}><Download size={16}/>Exporter</Button><Button variant="ghost" onClick={printReport}><Printer size={16}/>Imprimer le rapport</Button></div>
     </div>
 
     <section className="finance-privacy-note"><ShieldCheck size={20}/><span><b>Vos réponses ne quittent pas cet appareil.</b><small>Enregistrement automatique dans votre navigateur. Aucun compte bancaire ni service payant n’est requis.</small></span><span className="autosave-status"><CheckCircle2 size={14}/>Enregistré</span></section>

@@ -119,6 +119,12 @@ export interface Settings {
   timezone: string
   notifications: boolean
   budgetAlerts: boolean
+  emailNotifications: boolean
+  emailAddress: string
+  emailFrequency: 'instant' | 'daily' | 'weekly'
+  emailBudgetAlerts: boolean
+  emailTaskReminders: boolean
+  emailWeeklyReport: boolean
   coachMode: boolean
   coachFrequency: 'never' | 'daily' | 'weekly'
   animations: boolean
