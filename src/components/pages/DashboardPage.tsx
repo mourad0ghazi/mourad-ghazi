@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { CloudSun, Flame, Gift, Pencil, Sparkles, Wallet, X } from 'lucide-react'
+import { CloudSun, FileSpreadsheet, Flame, Gift, Pencil, Sparkles, Wallet, X } from 'lucide-react'
 import { Responsive, WidthProvider, type Layout } from 'react-grid-layout'
 import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import { useDashboardStore, useFinanceStore, usePersonalStore, useSettingsStore, useUIStore, monthTransactions } from '../../store'
@@ -39,6 +39,6 @@ export function DashboardPage() {
     {!mobile&&<div className={`desktop-grid ${editMode ? 'editing' : ''}`}><ResponsiveGrid className="layout" layouts={{ lg: layout as Layout[] }} breakpoints={{ lg: 1100, md: 900, sm: 640, xs: 420, xxs: 0 }} cols={{ lg: 12, md: 8, sm: 4, xs: 2, xxs: 1 }} rowHeight={54} margin={[16, 16]} compactType="vertical" isDraggable={editMode} isResizable={editMode} draggableHandle=".drag-handle" resizeHandles={['se']} onLayoutChange={(current, all) => { if (all.lg) setLayout(all.lg) }} useCSSTransforms>{children}</ResponsiveGrid></div>}
     {mobile&&<div className="mobile-grid">{children}</div>}
     {Object.values(visible).every((v) => !v) && <div className="empty-dashboard"><Sparkles size={32}/><h3>Votre espace est vide</h3><p>Réactivez vos modules depuis la barre latérale.</p><Button onClick={() => useDashboardStore.getState().showAll()}>Tout afficher</Button></div>}
-    <section className="free-cta"><span><Gift size={20}/></span><div><b>Plus d’outils, toujours gratuits</b><p>Prévisions IA locales, rapports, sauvegardes, profils famille et intégrations.</p></div><Button variant="secondary" onClick={() => setView('tools')}>Explorer les outils <span>→</span></Button></section>
+    <section className="free-cta excel-dashboard-cta"><span><FileSpreadsheet size={20}/></span><div><b>Personnalisez LifeOS depuis votre fichier Excel</b><p>LifeOS analyse vos feuilles, importe vos données et adapte automatiquement les widgets du dashboard.</p></div><Button variant="secondary" onClick={() => { sessionStorage.setItem('lifeos:open-tool','bank');setView('tools') }}>Importer un fichier <span>→</span></Button></section>
   </motion.div>
 }

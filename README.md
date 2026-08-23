@@ -8,7 +8,7 @@ A complete, local-first personal dashboard for everyday planning, goals, habits,
 - **Personal planning** — calendar month/week/day views, event management, tasks with list/Kanban/CSV workflows, notes, tri-state habits, private journal, SMART goals, Pomodoro, clock, and live Open-Meteo weather with fallback data.
 - **Finance center** — six-month overview charts, searchable and paginated transactions, editable budgets and alerts, savings contributions, compound-interest projection, investments, and loan amortization.
 - **Local assistant** — contextual answers from the current LifeOS stores, quick prompts, message history, and finance/productivity coaching without a remote AI dependency.
-- **12 included tools** — local forecasts, printable/CSV reports, bank CSV import, JSON backup/restore, family profiles, ICS calendar export, offline installation, themes, local data access, routines, privacy controls, and diagnostics.
+- **12 included tools** — local forecasts, printable/CSV reports, intelligent Excel personalization, JSON backup/restore, family profiles, ICS calendar export, offline installation, themes, local data access, routines, privacy controls, and diagnostics.
 - **Settings & privacy** — profile/avatar, themes, accent and density, locale/currency/timezone, module visibility, notifications, PIN lock, journal lock, masked amounts, exports, and reset controls.
 - **Responsive and accessible** — desktop sidebar, tablet drawer, mobile bottom bar, visible focus states, ARIA labels, keyboard controls, reduced-motion support, and light/dark/automatic themes.
 - **Local-first persistence** — Zustand stores are persisted in `localStorage`; a production service worker supports repeat visits offline.
@@ -52,6 +52,26 @@ The deployable output is generated in `dist/`. Deploy it as a static site. Hash-
 | `L` | Lock LifeOS |
 
 The initial demo PIN is `2026` and can be changed under **Paramètres → Sécurité**.
+
+## Personalize LifeOS from Excel
+
+Open **Outils gratuits → Import Excel intelligent**, use the dashboard import shortcut, or choose **Paramètres → Données → Personnaliser avec Excel**.
+
+Supported files:
+
+- `.xlsx`, `.xlsm`, and `.xltx` workbooks up to 25 MB
+- `.csv` files with comma or semicolon separators
+- Legacy `.xls` files should first be saved as `.xlsx` in Excel or LibreOffice
+
+LifeOS reads every worksheet locally, extracts cell values, dates, shared strings, inline strings, and saved formula results, and never executes formulas or macros. It recognizes tables for transactions, tasks, events, budgets, savings goals, investments, SMART goals, habits, notes, journal entries, and profile settings. Before applying anything, the import assistant displays:
+
+1. worksheets and detected modules;
+2. record and formula counts;
+3. a tabular preview of each sheet;
+4. formulas with their cached values;
+5. any unrecognized worksheets or mapping warnings.
+
+Choose whether to replace only the detected demo collections or merge and deduplicate them with existing data. The optional **Adapter mon dashboard** setting makes matching widgets visible, moves them to the top, and persists the new layout. A multi-sheet `.xlsx` template is available directly inside the importer.
 
 ## Data and backups
 
