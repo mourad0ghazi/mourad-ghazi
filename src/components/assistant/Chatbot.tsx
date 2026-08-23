@@ -3,6 +3,7 @@ import { Bot, ChevronDown, Eraser, Send, Sparkles, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { financeTips, productivityTips, quotes } from '../../data/knowledge'
 import { monthTransactions, useChatbotStore, useFinanceStore, usePersonalStore, useSettingsStore } from '../../store'
+import { currencyFormatOptions } from '../../utils/formatting'
 import { formatCurrency } from '../../utils/helpers'
 import { IconButton } from '../ui'
 
@@ -10,7 +11,7 @@ const suggestions=['Où en est mon budget ?','Que dois-je prioriser ?','Donne-mo
 function createAnswer(input:string){
   const q=input.toLowerCase(), finance=useFinanceStore.getState(), personal=usePersonalStore.getState(), settings=useSettingsStore.getState(), monthly=monthTransactions(finance.transactions)
   const income=monthly.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0), expenses=monthly.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0), balance=income-expenses
-  const money=(v:number)=>formatCurrency(v,settings.currency,settings.hideAmounts)
+  const money=(v:number)=>formatCurrency(v,settings.currency,settings.hideAmounts,currencyFormatOptions(settings))
   if(/budget|dépense|depense|solde|finance/.test(q)){const top=finance.budgets.map(b=>({name:b.category,spent:monthly.filter(t=>t.type==='expense'&&t.category===b.category).reduce((s,t)=>s+t.amount,0),planned:b.planned})).sort((a,b)=>b.spent/a.planned-a.spent/b.planned)[0];return `Ce mois-ci, vous avez reçu ${money(income)} et dépensé ${money(expenses)}, soit un solde de ${money(balance)}. ${top?`${top.name} est la catégorie la plus avancée (${Math.round(top.spent/top.planned*100)} %).`:''} Conseil : ${financeTips[(new Date().getDate()+q.length)%financeTips.length]}`}
   if(/épargne|epargne|objectif financier|econom/.test(q)){const saved=finance.savingsGoals.reduce((s,g)=>s+g.current,0), target=finance.savingsGoals.reduce((s,g)=>s+g.target,0);return `Vos objectifs d’épargne totalisent ${money(saved)} sur ${money(target)}, soit ${Math.round(saved/target*100)} %. Continuez les versements réguliers : la constance compte plus que le timing parfait.`}
   if(/tâche|tache|prior|productiv|faire|aujourd/.test(q)){const open=personal.tasks.filter(t=>t.status!=='done'), urgent=open.filter(t=>t.priority==='urgent'||t.priority==='high');return `Vous avez ${open.length} tâches actives, dont ${urgent.length} à priorité haute. Commencez par « ${urgent[0]?.title??open[0]?.title??'une courte revue de vos objectifs'} ». ${productivityTips[(new Date().getDate()+q.length)%productivityTips.length]}`}

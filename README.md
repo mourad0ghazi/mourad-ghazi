@@ -4,7 +4,7 @@ A complete, local-first personal dashboard for everyday planning, goals, habits,
 
 ## Highlights
 
-- **Configurable dashboard** — 17 widgets with persisted visibility, drag, resize, reorder, and layout reset.
+- **Configurable dashboard** — 17 widgets with persisted visibility, drag, resize, keyboard/mobile reordering, four one-click layout suggestions, density controls, and layout reset.
 - **Personal planning** — calendar month/week/day views, event management, tasks with list/Kanban/CSV workflows, notes, tri-state habits, private journal, SMART goals, Pomodoro, clock, and live Open-Meteo weather with fallback data.
 - **Finance center** — six-month overview charts, searchable and paginated transactions, editable budgets and alerts, savings contributions, compound-interest projection, investments, and loan amortization.
 - **Local assistant** — contextual answers from the current LifeOS stores, quick prompts, message history, and finance/productivity coaching without a remote AI dependency.
@@ -55,7 +55,7 @@ The initial demo PIN is `2026` and can be changed under **Paramètres → Sécur
 
 ## Personalize LifeOS from Excel
 
-Open **Outils gratuits → Import Excel intelligent**, use the dashboard import shortcut, or choose **Paramètres → Données → Personnaliser avec Excel**.
+Open **Outils gratuits → Import Excel intelligent**, use the dashboard import shortcut, or click the prominent **Choisir mon fichier Excel** button under **Paramètres → Données**. A file selected in Settings is handed directly to the import assistant and analyzed automatically.
 
 Supported files:
 
@@ -71,7 +71,11 @@ LifeOS reads every worksheet locally, extracts cell values, dates, shared string
 4. formulas with their cached values;
 5. any unrecognized worksheets or mapping warnings.
 
-Choose whether to replace only the detected demo collections or merge and deduplicate them with existing data. The optional **Adapter mon dashboard** setting makes matching widgets visible, moves them to the top, and persists the new layout. A multi-sheet `.xlsx` template is available directly inside the importer.
+Choose whether to replace only the detected demo collections or merge and deduplicate them with existing data. Applying an import writes recognized records into their real LifeOS stores—not a temporary preview—so imported amounts, prices, dates, tasks, events, budgets, goals, habits, notes, journal entries, investments, and savings data immediately populate the corresponding modules.
+
+A `Profil` sheet can also set currency, language, timezone, date/time pattern, dashboard density, price decimals, currency symbol/code display, theme, and standard profile fields. Date order is pre-scanned across the workbook before records are converted, and imported display preferences are used by applicable dashboard, finance, planning, search, assistant, report, and calendar views. The optional **Adapter mon dashboard** setting makes matching widgets visible, moves them to the top, and persists the new layout. A multi-sheet `.xlsx` template is available directly inside the importer.
+
+For visual organization, open **Personnaliser** on the dashboard or **Paramètres → Dashboard**. Choose one of four suggestions—Essentiel, Productivité, Pilotage financier, or Vue complète—then drag/resize widgets on desktop or use the accessible up/down ordering controls on smaller screens. Visibility, order, size, and density persist locally.
 
 ## Data and backups
 

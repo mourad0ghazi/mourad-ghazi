@@ -22,7 +22,7 @@ export const initialSettings: Settings = {
     city: 'Casablanca',
   },
   theme: 'light', accent: 'smoke', density: 'comfortable', language: 'fr', currency: 'MAD',
-  dateFormat: 'DD/MM/YYYY', timeFormat: '24h', timezone: 'Africa/Casablanca', notifications: true,
+  dateFormat: 'DD/MM/YYYY', timeFormat: '24h', amountDecimals: 0, currencyDisplay: 'symbol', timezone: 'Africa/Casablanca', notifications: true,
   budgetAlerts: true, coachMode: true, coachFrequency: 'daily', animations: true, smoke: true,
   parallax: true, hideAmounts: false, pin: '2026', journalLocked: false,
 }

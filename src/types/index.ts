@@ -114,6 +114,8 @@ export interface Settings {
   currency: 'MAD' | 'EUR' | 'USD' | 'GBP' | 'CAD' | 'CHF' | 'AED'
   dateFormat: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD'
   timeFormat: '12h' | '24h'
+  amountDecimals: 0 | 2
+  currencyDisplay: 'symbol' | 'code'
   timezone: string
   notifications: boolean
   budgetAlerts: boolean

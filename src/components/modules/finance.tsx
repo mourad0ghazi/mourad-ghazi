@@ -4,33 +4,38 @@ import { AlertTriangle, ArrowDownRight, ArrowUpRight, Calculator, CircleDollarSi
 import { AnimatedNumber, Badge, Button, IconButton, Input, Progress, Widget } from '../ui'
 import { monthTransactions, useFinanceStore, useSettingsStore, useUIStore } from '../../store'
 import { compoundProjection, loanCalculation } from '../../utils/calculations'
-import { daysUntil, downloadFile, formatCurrency, formatDate, transactionsToCSV } from '../../utils/helpers'
+import { daysUntil, downloadFile, formatCurrency, transactionsToCSV } from '../../utils/helpers'
+import { useDateFormatter } from '../../utils/formatting'
 
 const chartColors = ['#343a40', '#596168', '#747c83', '#90969b', '#aab0b5', '#c3c8cc', '#737d74', '#988a7d']
 const tooltipStyle = { background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: 'var(--shadow-card)', fontSize: 12 }
 
 function useMoney() {
-  const currency = useSettingsStore((s) => s.currency)
-  const hidden = useSettingsStore((s) => s.hideAmounts)
-  return (value: number) => formatCurrency(value, currency, hidden)
+  const currency = useSettingsStore((state) => state.currency)
+  const hidden = useSettingsStore((state) => state.hideAmounts)
+  const amountDecimals = useSettingsStore((state) => state.amountDecimals)
+  const currencyDisplay = useSettingsStore((state) => state.currencyDisplay)
+  const language = useSettingsStore((state) => state.language)
+  return (value: number) => formatCurrency(value, currency, hidden, { fractionDigits: amountDecimals, currencyDisplay, language })
 }
 
-function monthlySeries(transactions: ReturnType<typeof useFinanceStore.getState>['transactions']) {
+function monthlySeries(transactions: ReturnType<typeof useFinanceStore.getState>['transactions'], language: 'fr' | 'en') {
   return Array.from({ length: 6 }, (_, index) => {
     const date = new Date(); date.setMonth(date.getMonth() - (5 - index))
     const items = monthTransactions(transactions, date)
     const income = items.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0)
     const expense = items.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0)
-    return { month: new Intl.DateTimeFormat('fr-FR', { month: 'short' }).format(date).replace('.', ''), Revenus: income, Dépenses: expense, Épargne: income - expense }
+    return { month: new Intl.DateTimeFormat(language === 'en' ? 'en-GB' : 'fr-FR', { month: 'short' }).format(date).replace('.', ''), Revenus: income, Dépenses: expense, Épargne: income - expense }
   })
 }
 
 export function FinanceSummaryModule({ extended = false }: { extended?: boolean }) {
   const transactions = useFinanceStore((s) => s.transactions)
+  const language = useSettingsStore((s) => s.language)
   const money = useMoney(); const current = monthTransactions(transactions)
   const income = current.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0)
   const expense = current.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
-  const series = useMemo(() => monthlySeries(transactions), [transactions])
+  const series = useMemo(() => monthlySeries(transactions, language), [transactions, language])
   return <Widget id="finance" title="Vue financière" icon={<CircleDollarSign size={18} />}>
     <div className="finance-stats"><div><span>Revenus <ArrowUpRight size={14} /></span><strong className="success"><AnimatedNumber value={income} formatter={money} /></strong><small>+8,4% ce mois</small></div><div><span>Dépenses <ArrowDownRight size={14} /></span><strong className="danger"><AnimatedNumber value={expense} formatter={money} /></strong><small>-3,2% ce mois</small></div><div><span>Épargne nette</span><strong><AnimatedNumber value={income - expense} formatter={money} /></strong><small>{income ? Math.round((income - expense) / income * 100) : 0}% des revenus</small></div></div>
     <div className={`chart ${extended ? 'chart-large' : ''}`}><ResponsiveContainer width="100%" height="100%"><AreaChart data={series} margin={{ top: 8, right: 5, bottom: 0, left: -22 }}><defs><linearGradient id="incomeFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3d8b5c" stopOpacity=".26"/><stop offset="100%" stopColor="#3d8b5c" stopOpacity="0"/></linearGradient><linearGradient id="expenseFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#b85c5c" stopOpacity=".2"/><stop offset="100%" stopColor="#b85c5c" stopOpacity="0"/></linearGradient></defs><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false}/><XAxis dataKey="month" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false}/><YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false}/><Tooltip contentStyle={tooltipStyle} formatter={(v: number) => money(v)}/><Area type="monotone" dataKey="Revenus" stroke="#3d8b5c" fill="url(#incomeFill)" strokeWidth={2}/><Area type="monotone" dataKey="Dépenses" stroke="#b85c5c" fill="url(#expenseFill)" strokeWidth={2}/></AreaChart></ResponsiveContainer></div>
@@ -51,13 +56,13 @@ export function TransactionsModule({ extended = false }: { extended?: boolean })
   const transactions = useFinanceStore((s) => s.transactions)
   const remove = useFinanceStore((s) => s.removeTransaction), update=useFinanceStore(s=>s.updateTransaction)
   const setModal = useUIStore((s) => s.setModal), showToast=useUIStore(s=>s.showToast)
-  const money = useMoney(); const [query, setQuery] = useState(''); const [type, setType] = useState('all'), [page,setPage]=useState(0)
+  const money = useMoney(), date = useDateFormatter(); const [query, setQuery] = useState(''); const [type, setType] = useState('all'), [page,setPage]=useState(0)
   const filtered = transactions.filter((t) => (type === 'all' || t.type === type) && `${t.title} ${t.category}`.toLowerCase().includes(query.toLowerCase())), perPage=extended?10:7, pages=Math.max(1,Math.ceil(filtered.length/perPage)), shown=filtered.slice(Math.min(page,pages-1)*perPage,Math.min(page,pages-1)*perPage+perPage)
   const edit=(id:string,title:string,amount:number)=>{const nextTitle=prompt('Modifier le libellé',title)?.trim();if(!nextTitle)return;const nextAmount=Number(prompt('Modifier le montant',String(amount)));update(id,{title:nextTitle,...(Number.isFinite(nextAmount)&&nextAmount>=0?{amount:nextAmount}:{})});showToast('Transaction mise à jour')}
   const exportCSV = () => downloadFile(`lifeos-transactions-${new Date().toISOString().slice(0,10)}.csv`, transactionsToCSV(filtered), 'text/csv;charset=utf-8')
   return <Widget id="transactions" title="Transactions" icon={<ReceiptText size={18} />} action={<div className="header-actions"><IconButton label="Exporter CSV" onClick={exportCSV}><Download size={16} /></IconButton><IconButton label="Ajouter" onClick={() => setModal('transaction')}><Plus size={17} /></IconButton></div>}>
     {extended && <div className="transactions-filters"><Input placeholder="Rechercher une transaction…" value={query} onChange={(e) => setQuery(e.target.value)} /><select className="input" value={type} onChange={(e) => setType(e.target.value)}><option value="all">Tous les types</option><option value="income">Revenus</option><option value="expense">Dépenses</option></select><Button variant="secondary" onClick={exportCSV}><Download size={16}/> CSV</Button></div>}
-    <div className={`transaction-list ${extended ? 'extended' : ''}`}>{shown.map((item) => <div key={item.id} className="transaction-row" onDoubleClick={()=>edit(item.id,item.title,item.amount)}><span className={`transaction-avatar ${item.type}`}>{item.category.slice(0, 1)}</span><div><b>{item.title}</b><small>{item.category} · {formatDate(item.date, { day: 'numeric', month: 'short' })}</small></div><strong className={item.type === 'income' ? 'success' : 'danger'}>{item.type === 'income' ? '+' : '−'}{money(item.amount)}</strong><IconButton label="Supprimer" className="row-delete" onClick={() => remove(item.id)}><Trash2 size={14}/></IconButton></div>)}</div>{extended&&pages>1&&<div className="pagination"><Button size="sm" variant="ghost" disabled={page<=0} onClick={()=>setPage(p=>p-1)}>← Précédent</Button><span>Page {Math.min(page,pages-1)+1} / {pages}</span><Button size="sm" variant="ghost" disabled={page>=pages-1} onClick={()=>setPage(p=>p+1)}>Suivant →</Button></div>}
+    <div className={`transaction-list ${extended ? 'extended' : ''}`}>{shown.map((item) => <div key={item.id} className="transaction-row" onDoubleClick={()=>edit(item.id,item.title,item.amount)}><span className={`transaction-avatar ${item.type}`}>{item.category.slice(0, 1)}</span><div><b>{item.title}</b><small>{item.category} · {date(item.date, { day: 'numeric', month: 'short' })}</small></div><strong className={item.type === 'income' ? 'success' : 'danger'}>{item.type === 'income' ? '+' : '−'}{money(item.amount)}</strong><IconButton label="Supprimer" className="row-delete" onClick={() => remove(item.id)}><Trash2 size={14}/></IconButton></div>)}</div>{extended&&pages>1&&<div className="pagination"><Button size="sm" variant="ghost" disabled={page<=0} onClick={()=>setPage(p=>p-1)}>← Précédent</Button><span>Page {Math.min(page,pages-1)+1} / {pages}</span><Button size="sm" variant="ghost" disabled={page>=pages-1} onClick={()=>setPage(p=>p+1)}>Suivant →</Button></div>}
   </Widget>
 }
 

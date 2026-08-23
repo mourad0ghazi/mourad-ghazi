@@ -61,16 +61,48 @@ const labels: Record<ImportKind, string> = Object.fromEntries(definitions.map((d
 const colors = ['#343a40','#596168','#747c83','#90969b','#737d74','#988a7d']
 const uuid = () => crypto.randomUUID()
 const clean = (value: unknown) => String(value ?? '').trim()
-const normalize = (value: unknown) => clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[_/\\-]+/g,' ').replace(/[^a-z0-9% ]/g,'').replace(/\s+/g,' ').trim()
-const num = (value: unknown, fallback = 0) => { if (typeof value === 'number') return Number.isFinite(value) ? value : fallback; const parsed = Number(clean(value).replace(/\s/g,'').replace(/%$/,'').replace(',','.')); return Number.isFinite(parsed) ? parsed : fallback }
+const normalize = (value: unknown) => clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[’']/g,' ').replace(/[_/\\-]+/g,' ').replace(/[^a-z0-9% ]/g,'').replace(/\s+/g,' ').trim()
+const num = (value: unknown, fallback = 0) => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : fallback
+  const raw = clean(value).replace(/[\s\u00a0\u202f]/g,'')
+  const parenthesized = /^\(.*\)$/.test(raw)
+  let normalized = raw.replace(/[^0-9,.+\-]/g,'')
+  const comma = normalized.lastIndexOf(','), dot = normalized.lastIndexOf('.')
+  if (comma >= 0 && dot >= 0) {
+    normalized = comma > dot ? normalized.replace(/\./g,'').replace(',','.') : normalized.replace(/,/g,'')
+  } else if (comma >= 0) {
+    const decimals = normalized.length - comma - 1
+    normalized = decimals === 3
+      ? normalized.replace(/,/g,'')
+      : `${normalized.slice(0, comma).replace(/,/g,'')}.${normalized.slice(comma + 1)}`
+  } else if (dot >= 0) {
+    const decimals = normalized.length - dot - 1
+    normalized = decimals === 3
+      ? normalized.replace(/\./g,'')
+      : `${normalized.slice(0, dot).replace(/\./g,'')}.${normalized.slice(dot + 1)}`
+  }
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? (parenthesized ? -Math.abs(parsed) : parsed) : fallback
+}
 const percent = (value: unknown) => { const n=num(value); return Math.max(0,Math.min(100,n > 0 && n <= 1 ? n*100 : n)) }
 const bool = (value: unknown) => ['1','true','oui','yes','vrai','x','epingle'].includes(normalize(value))
 
-function asDate(value: unknown, fallback = new Date().toISOString().slice(0,10)) {
+function validDateParts(year: string, month: string, day: string) {
+  const parsed = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)))
+  return parsed.getUTCFullYear() === Number(year) && parsed.getUTCMonth() === Number(month) - 1 && parsed.getUTCDate() === Number(day)
+}
+function asDate(value: unknown, fallback = new Date().toISOString().slice(0,10), dateFormat: Settings['dateFormat'] = 'DD/MM/YYYY') {
   if (typeof value === 'number' && value > 1) return excelDate(value).slice(0,10)
   const raw=clean(value); if(!raw)return fallback
-  if(/^\d{4}-\d{2}-\d{2}/.test(raw))return raw.slice(0,10)
-  const match=raw.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$/); if(match){const year=match[3].length===2?`20${match[3]}`:match[3];return `${year}-${match[2].padStart(2,'0')}-${match[1].padStart(2,'0')}`}
+  const iso=raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if(iso)return validDateParts(iso[1],iso[2],iso[3])?raw.slice(0,10):fallback
+  const match=raw.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$/)
+  if(match){
+    const year=match[3].length===2?`20${match[3]}`:match[3]
+    const month=dateFormat==='MM/DD/YYYY'?match[1]:match[2]
+    const day=dateFormat==='MM/DD/YYYY'?match[2]:match[1]
+    return validDateParts(year,month,day)?`${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`:fallback
+  }
   const parsed=new Date(raw); return Number.isNaN(parsed.getTime())?fallback:parsed.toISOString().slice(0,10)
 }
 function asTime(value: unknown) { if(typeof value==='number'&&value>=0&&value<1){const minutes=Math.round(value*1440)%1440;return `${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`} const raw=clean(value);const m=raw.match(/(\d{1,2}):(\d{2})/);return m?`${m[1].padStart(2,'0')}:${m[2]}`:'09:00' }
@@ -126,25 +158,85 @@ function transactionType(value: unknown, amount: number, hasDebit: boolean, hasC
 function taskStatus(value: unknown):TaskStatus {const status=normalize(value);if(/fait|termine|fini|done|complete|clos/.test(status))return'done';if(/cours|doing|progress|commence/.test(status))return'doing';return'todo'}
 function priority(value: unknown):Priority {const p=normalize(value);if(/urgent|critique/.test(p))return'urgent';if(/haut|high|eleve/.test(p))return'high';if(/bas|low|faible/.test(p))return'low';return'medium'}
 function investmentType(value: unknown):Investment['type'] {const type=normalize(value);if(type.includes('crypto'))return'Crypto';if(/immob|real estate/.test(type))return'Immobilier';if(/epargne|saving|obligation/.test(type))return'Épargne';return'Actions'}
+function importedDateFormat(value: unknown): Settings['dateFormat'] | undefined { const raw=clean(value).toUpperCase().replace(/[.\-]/g,'/').replace(/\s/g,'');if(raw.startsWith('YYYY'))return'YYYY-MM-DD';if(raw.startsWith('MM'))return'MM/DD/YYYY';if(raw.startsWith('DD'))return'DD/MM/YYYY';return undefined }
+function applyProfileRow(plan: ExcelImportPlan, row: Record<string, ExcelValue>, dateFormat: Settings['dateFormat']) {
+  const field=normalize(row.field),value=clean(row.value),normalizedValue=normalize(value)
+  if(!field||!value)return false
+  if(['nom','name','nom complet'].includes(field))plan.profile.name=value
+  else if(field==='email'||field==='e mail')plan.profile.email=value
+  else if(['ville','city'].includes(field))plan.profile.city=value
+  else if(['telephone','phone'].includes(field))plan.profile.phone=value
+  else if(['bio','biographie'].includes(field))plan.profile.bio=value
+  else if(['date naissance','birth date','naissance'].includes(field))plan.profile.birthDate=asDate(value,undefined,dateFormat)
+  else if(['devise','currency'].includes(field)&&['MAD','EUR','USD','GBP','CAD','CHF','AED'].includes(value.toUpperCase()))plan.settings.currency=value.toUpperCase() as Settings['currency']
+  else if(['langue','language'].includes(field)) { if(/^(fr|francais|french)$/.test(normalizedValue))plan.settings.language='fr';else if(/^(en|anglais|english)$/.test(normalizedValue))plan.settings.language='en';else return false }
+  else if(['fuseau horaire','timezone','time zone'].includes(field))plan.settings.timezone=value
+  else if(['format date','format de date','date format','ordre des dates'].includes(field)) { const parsed=importedDateFormat(value);if(!parsed)return false;plan.settings.dateFormat=parsed }
+  else if(['format heure','format de l heure','time format','heure'].includes(field)) { if(value.includes('12'))plan.settings.timeFormat='12h';else if(value.includes('24'))plan.settings.timeFormat='24h';else return false }
+  else if(['densite','density','densite affichage','densite d affichage'].includes(field)) { if(/compact/.test(normalizedValue))plan.settings.density='compact';else if(/spac|aere/.test(normalizedValue))plan.settings.density='spacious';else if(/comfort|confort|equilibr/.test(normalizedValue))plan.settings.density='comfortable';else return false }
+  else if(['decimales','decimales prix','decimales des prix','decimales montants','decimales des montants','amount decimals','decimal places'].includes(field))plan.settings.amountDecimals=num(value)===2?2:0
+  else if(['affichage devise','currency display','format devise'].includes(field)) { if(/code|iso/.test(normalizedValue))plan.settings.currencyDisplay='code';else if(/symbole|symbol/.test(normalizedValue))plan.settings.currencyDisplay='symbol';else return false }
+  else if(['theme','mode apparence'].includes(field)) { if(/sombre|dark/.test(normalizedValue))plan.settings.theme='dark';else if(/clair|light/.test(normalizedValue))plan.settings.theme='light';else if(/auto|system/.test(normalizedValue))plan.settings.theme='auto';else return false }
+  else return false
+  return true
+}
 
 export function buildExcelImportPlan(workbook: ExcelWorkbook): ExcelImportPlan {
   const plan:ExcelImportPlan={workbook,detected:[],transactions:[],tasks:[],events:[],budgets:[],savingsGoals:[],investments:[],goals:[],habits:[],notes:[],journal:[],profile:{},settings:{},widgets:[],warnings:[],totalRecords:0}
-  const widgetSet=new Set<ModuleId>(),today=new Date().toISOString().slice(0,10)
-  for(const table of locateTables(workbook)){const data=records(table)
-    if(table.definition.kind==='transactions'){for(const row of data){const debit=num(row.debit),credit=num(row.credit),rawAmount=row.amount!==undefined?num(row.amount):credit||debit,amount=Math.abs(rawAmount);if(!amount)continue;plan.transactions.push({id:uuid(),date:asDate(row.date),title:clean(row.title)||'Transaction importée',type:transactionType(row.type,rawAmount,debit>0,credit>0),category:clean(row.category)||'Import Excel',amount,note:clean(row.note)||undefined})}widgetSet.add('transactions');widgetSet.add('finance');widgetSet.add('expenses')}
-    if(table.definition.kind==='tasks'){for(const row of data){const title=clean(row.title);if(!title)continue;plan.tasks.push({id:uuid(),title,status:taskStatus(row.status),priority:priority(row.priority),dueDate:asDate(row.dueDate),category:clean(row.category)||'Import Excel',tags:clean(row.tags).split(/[,;]/).map((x)=>x.trim()).filter(Boolean),subtasks:[]})}widgetSet.add('tasks')}
-    if(table.definition.kind==='events'){for(const row of data){const title=clean(row.title);if(!title)continue;plan.events.push({id:uuid(),title,date:asDate(row.date),time:asTime(row.time),color:clean(row.color)||'#596168'})}widgetSet.add('calendar')}
-    if(table.definition.kind==='budgets'){for(const row of data){const category=clean(row.category),planned=Math.abs(num(row.planned));if(!category||!planned)continue;plan.budgets.push({id:uuid(),category,planned,color:clean(row.color)||colors[plan.budgets.length%colors.length]})}widgetSet.add('budget')}
-    if(table.definition.kind==='savings'){for(const row of data){const name=clean(row.name),target=Math.abs(num(row.target));if(!name||!target)continue;plan.savingsGoals.push({id:uuid(),name,current:Math.max(0,Math.min(target,num(row.current))),target,deadline:asDate(row.deadline,new Date(Date.now()+365*86400000).toISOString().slice(0,10)),icon:clean(row.icon)||'🎯'})}widgetSet.add('savings')}
-    if(table.definition.kind==='investments'){for(const row of data){const name=clean(row.name),value=Math.abs(num(row.value||row.invested));if(!name||!value)continue;plan.investments.push({id:uuid(),name,symbol:(clean(row.symbol)||name.slice(0,4)).toUpperCase(),type:investmentType(row.type),value,invested:Math.abs(num(row.invested,value)),change:num(row.change)})}widgetSet.add('investments')}
-    if(table.definition.kind==='goals'){for(const row of data){const title=clean(row.title);if(!title)continue;plan.goals.push({id:uuid(),title,progress:percent(row.progress),deadline:asDate(row.deadline,new Date(Date.now()+90*86400000).toISOString().slice(0,10)),category:clean(row.category)||'Personnel',milestones:[]})}widgetSet.add('goals')}
-    if(table.definition.kind==='habits'){for(const row of data){const name=clean(row.name);if(!name)continue;const streak=Math.max(0,Math.round(num(row.streak)));plan.habits.push({id:uuid(),name,icon:clean(row.icon)||'◇',streak,bestStreak:Math.max(streak,Math.round(num(row.bestStreak,streak))),done:/fait|done|oui|yes/.test(normalize(row.state))?{[today]:true}:{},missed:/manque|missed|non|no/.test(normalize(row.state))?{[today]:true}:{}})}widgetSet.add('habits')}
-    if(table.definition.kind==='notes'){for(const row of data){const content=clean(row.content),title=clean(row.title)||'Note importée';if(!content&&!clean(row.title))continue;plan.notes.push({id:uuid(),title,content,updatedAt:asDate(row.updatedAt,new Date().toISOString()),pinned:bool(row.pinned)})}widgetSet.add('notes')}
-    if(table.definition.kind==='journal'){for(const row of data){const content=clean(row.content);if(!content)continue;plan.journal.push({id:uuid(),date:asDate(row.date),content,mood:Math.max(1,Math.min(5,Math.round(num(row.mood,3))))})}widgetSet.add('journal')}
-    if(table.definition.kind==='profile'){for(const row of data){const field=normalize(row.field),value=clean(row.value);if(!field||!value)continue;if(['nom','name','nom complet'].includes(field))plan.profile.name=value;else if(field==='email'||field==='e mail')plan.profile.email=value;else if(['ville','city'].includes(field))plan.profile.city=value;else if(['telephone','phone'].includes(field))plan.profile.phone=value;else if(['bio','biographie'].includes(field))plan.profile.bio=value;else if(['date naissance','birth date','naissance'].includes(field))plan.profile.birthDate=asDate(value);else if(['devise','currency'].includes(field)&&['MAD','EUR','USD','GBP','CAD','CHF','AED'].includes(value.toUpperCase()))plan.settings.currency=value.toUpperCase() as Settings['currency'];else if(['langue','language'].includes(field)&&['fr','en'].includes(value.toLowerCase()))plan.settings.language=value.toLowerCase() as Settings['language'];else if(['fuseau horaire','timezone'].includes(field))plan.settings.timezone=value}}
-    const collectionCount:Record<ImportKind,number>={transactions:plan.transactions.length,tasks:plan.tasks.length,events:plan.events.length,budgets:plan.budgets.length,savings:plan.savingsGoals.length,investments:plan.investments.length,goals:plan.goals.length,habits:plan.habits.length,notes:plan.notes.length,journal:plan.journal.length,profile:Object.keys(plan.profile).length+Object.keys(plan.settings).length}
-    const previous=plan.detected.filter((item)=>item.kind===table.definition.kind).reduce((sum,item)=>sum+item.count,0),current=Math.max(0,collectionCount[table.definition.kind]-previous)
-    plan.detected.push({kind:table.definition.kind,label:labels[table.definition.kind],sheet:table.sheet.name,count:current,headerRow:table.headerRow+1});plan.totalRecords+=current
+  const widgetSet=new Set<ModuleId>(),today=new Date().toISOString().slice(0,10),located=locateTables(workbook)
+  let dateFormat:Settings['dateFormat']='DD/MM/YYYY'
+  for(const table of located.filter((item)=>item.definition.kind==='profile'))for(const row of records(table))if(['format date','format de date','date format','ordre des dates'].includes(normalize(row.field)))dateFormat=importedDateFormat(row.value)??dateFormat
+  const importedDate=(value:unknown,fallback?:string)=>asDate(value,fallback,dateFormat)
+
+  for(const table of located){
+    const data=records(table)
+    const before:Record<ImportKind,number>={transactions:plan.transactions.length,tasks:plan.tasks.length,events:plan.events.length,budgets:plan.budgets.length,savings:plan.savingsGoals.length,investments:plan.investments.length,goals:plan.goals.length,habits:plan.habits.length,notes:plan.notes.length,journal:plan.journal.length,profile:0}
+    let profileCount=0
+    if(table.definition.kind==='transactions'){
+      for(const row of data){const debit=num(row.debit),credit=num(row.credit),rawAmount=row.amount!==undefined?num(row.amount):credit||debit,amount=Math.abs(rawAmount);if(!amount)continue;plan.transactions.push({id:uuid(),date:importedDate(row.date),title:clean(row.title)||'Transaction importée',type:transactionType(row.type,rawAmount,debit>0,credit>0),category:clean(row.category)||'Import Excel',amount,note:clean(row.note)||undefined})}
+      widgetSet.add('transactions');widgetSet.add('finance');widgetSet.add('expenses')
+    }
+    if(table.definition.kind==='tasks'){
+      for(const row of data){const title=clean(row.title);if(!title)continue;plan.tasks.push({id:uuid(),title,status:taskStatus(row.status),priority:priority(row.priority),dueDate:importedDate(row.dueDate),category:clean(row.category)||'Import Excel',tags:clean(row.tags).split(/[,;]/).map((x)=>x.trim()).filter(Boolean),subtasks:[]})}
+      widgetSet.add('tasks')
+    }
+    if(table.definition.kind==='events'){
+      for(const row of data){const title=clean(row.title);if(!title)continue;plan.events.push({id:uuid(),title,date:importedDate(row.date),time:asTime(row.time),color:clean(row.color)||'#596168'})}
+      widgetSet.add('calendar')
+    }
+    if(table.definition.kind==='budgets'){
+      for(const row of data){const category=clean(row.category),planned=Math.abs(num(row.planned));if(!category||!planned)continue;plan.budgets.push({id:uuid(),category,planned,color:clean(row.color)||colors[plan.budgets.length%colors.length]})}
+      widgetSet.add('budget')
+    }
+    if(table.definition.kind==='savings'){
+      for(const row of data){const name=clean(row.name),target=Math.abs(num(row.target));if(!name||!target)continue;plan.savingsGoals.push({id:uuid(),name,current:Math.max(0,Math.min(target,num(row.current))),target,deadline:importedDate(row.deadline,new Date(Date.now()+365*86400000).toISOString().slice(0,10)),icon:clean(row.icon)||'🎯'})}
+      widgetSet.add('savings')
+    }
+    if(table.definition.kind==='investments'){
+      for(const row of data){const name=clean(row.name),value=Math.abs(num(row.value||row.invested));if(!name||!value)continue;plan.investments.push({id:uuid(),name,symbol:(clean(row.symbol)||name.slice(0,4)).toUpperCase(),type:investmentType(row.type),value,invested:Math.abs(num(row.invested,value)),change:num(row.change)})}
+      widgetSet.add('investments')
+    }
+    if(table.definition.kind==='goals'){
+      for(const row of data){const title=clean(row.title);if(!title)continue;plan.goals.push({id:uuid(),title,progress:percent(row.progress),deadline:importedDate(row.deadline,new Date(Date.now()+90*86400000).toISOString().slice(0,10)),category:clean(row.category)||'Personnel',milestones:[]})}
+      widgetSet.add('goals')
+    }
+    if(table.definition.kind==='habits'){
+      for(const row of data){const name=clean(row.name);if(!name)continue;const streak=Math.max(0,Math.round(num(row.streak)));plan.habits.push({id:uuid(),name,icon:clean(row.icon)||'◇',streak,bestStreak:Math.max(streak,Math.round(num(row.bestStreak,streak))),done:/fait|done|oui|yes/.test(normalize(row.state))?{[today]:true}:{},missed:/manque|missed|non|no/.test(normalize(row.state))?{[today]:true}:{}})}
+      widgetSet.add('habits')
+    }
+    if(table.definition.kind==='notes'){
+      for(const row of data){const content=clean(row.content),title=clean(row.title)||'Note importée';if(!content&&!clean(row.title))continue;plan.notes.push({id:uuid(),title,content,updatedAt:importedDate(row.updatedAt,new Date().toISOString()),pinned:bool(row.pinned)})}
+      widgetSet.add('notes')
+    }
+    if(table.definition.kind==='journal'){
+      for(const row of data){const content=clean(row.content);if(!content)continue;plan.journal.push({id:uuid(),date:importedDate(row.date),content,mood:Math.max(1,Math.min(5,Math.round(num(row.mood,3))))})}
+      widgetSet.add('journal')
+    }
+    if(table.definition.kind==='profile')for(const row of data)if(applyProfileRow(plan,row,dateFormat))profileCount++
+    const after:Record<ImportKind,number>={transactions:plan.transactions.length,tasks:plan.tasks.length,events:plan.events.length,budgets:plan.budgets.length,savings:plan.savingsGoals.length,investments:plan.investments.length,goals:plan.goals.length,habits:plan.habits.length,notes:plan.notes.length,journal:plan.journal.length,profile:profileCount}
+    const current=table.definition.kind==='profile'?profileCount:Math.max(0,after[table.definition.kind]-before[table.definition.kind])
+    plan.detected.push({kind:table.definition.kind,label:labels[table.definition.kind],sheet:table.sheet.name,count:current,headerRow:table.headerRow+1})
+    plan.totalRecords+=current
   }
   plan.widgets=[...widgetSet]
   if(!plan.detected.length)plan.warnings.push('Aucun tableau reconnu. Utilisez la première ligne pour nommer clairement les colonnes ou téléchargez le modèle LifeOS.')
@@ -167,7 +259,7 @@ export function createLifeOSExcelTemplate(){const sheets=[
   ['Habitudes',[['Nom','Série','Meilleure série'],['Lecture',7,15]]],
   ['Notes',[['Titre','Contenu'],['Idées semaine','Préparer le planning de septembre']]],
   ['Journal',[['Date','Humeur','Contenu'],['2026-08-23',4,'Une journée productive.']]],
-  ['Profil',[['Champ','Valeur'],['Nom','Mourad Ghazi'],['Ville','Casablanca'],['Devise','MAD'],['Langue','fr']]],
+  ['Profil',[['Champ','Valeur'],['Nom','Mourad Ghazi'],['Ville','Casablanca'],['Devise','MAD'],['Langue','fr'],['Format de date','DD/MM/YYYY'],['Format de l’heure','24h'],['Densité d’affichage','Confortable'],['Décimales des prix',0],['Affichage devise','Symbole'],['Fuseau horaire','Africa/Casablanca']]],
 ] as [string,(string|number)[][]][]
   const contentTypes=`<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`
   const rootRels=`<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`
